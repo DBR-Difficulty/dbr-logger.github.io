@@ -443,12 +443,15 @@ function renderSummaryBands(summary) {
 }
 
 function renderSummary(summaryContainer, summary, filters) {
+  const lampFilterDisabled = filters.axisMode === "title";
+
   const legend = LAMP_OPTIONS.map((lamp) => `
     <button
       class="summary-lamp-item ${filters.lamps.includes(lamp) ? "is-active" : "is-inactive"}"
       type="button"
       data-summary-lamp="${escapeHtml(lamp)}"
       aria-pressed="${filters.lamps.includes(lamp) ? "true" : "false"}"
+      ${lampFilterDisabled ? "disabled aria-disabled=\"true\"" : ""}
     >
       <div class="summary-lamp-main">
         <span class="summary-lamp-dot" style="background:${LAMP_COLORS[lamp]}"></span>
