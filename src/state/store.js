@@ -405,8 +405,7 @@ export function createStore() {
     error: "",
   };
 
-  function emit() {
-    const snapshot = getSnapshot();
+  function emit(snapshot = getSnapshot()) {
     listeners.forEach((listener) => listener(snapshot));
   }
 
@@ -424,13 +423,19 @@ export function createStore() {
     });
   }
 
-  function ensureSelectedSong() {
-    const snapshot = getSnapshot();
+  function ensureSelectedSong(snapshot = getSnapshot()) {
     const visibleTitles = new Set(snapshot.pagedSongs.map((song) => song.title));
-
+  
     if (!state.selectedTitle || !visibleTitles.has(state.selectedTitle)) {
       state.selectedTitle = snapshot.pagedSongs[0]?.title ?? snapshot.visibleSongs[0]?.title ?? snapshot.songStates[0]?.title ?? null;
+  
+      return {
+        ...snapshot,
+        selectedTitle: state.selectedTitle,
+      };
     }
+  
+    return snapshot;
   }
 
   function getCatalogEntries() {
@@ -624,8 +629,10 @@ export function createStore() {
     state.filters = nextStateFilters;
     state.currentPage = 1;
     persist();
-    ensureSelectedSong();
-    emit();
+    
+    let snapshot = getSnapshot();
+    snapshot = ensureSelectedSong(snapshot);
+    emit(snapshot);
   }
 
   function clearTitleFilter() {
