@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DBR進捗管理 v1.1 マニュアル</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="manual-page">
+    <article class="manual-content">
+      <h1>DBR進捗管理 v1.1 マニュアル</h1>
+
+      <section>
+        <h2>概要</h2>
+        <p><code>DBR進捗管理</code> は、DBR譜面のクリア状況、BP、スコア、メモをローカルで管理するためのWebアプリです。<br>
+        データはブラウザの <code>localStorage</code> に保存されます。</p>
+      </section>
+
+      <section>
+        <h2>画面構成</h2>
+        <ul>
+          <li><code>ヒーロー部</code><br>データ入出力ボタンがあります</li>
+          <li><code>全体サマリー</code><br>難易度帯ごとの横棒グラフと、クリアランプ別の件数を表示します</li>
+          <li><code>曲一覧</code><br>現在の絞り込み条件に一致する曲カードを表示します</li>
+          <li><code>プレー記録</code><br>選択曲に対してクリア、BP、スコア、メモを入力します</li>
+          <li><code>推移グラフ</code><br>BP推移とスコア推移を表示します</li>
+          <li><code>選択曲の履歴</code><br>保存済み履歴を日付順で表示します</li>
+          <li><code>絞り込み</code><br>フローティングの簡易絞り込みです</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>初期準備</h2>
+
+        <h3>1. 難易度表を読み込む</h3>
+        <ul>
+          <li><code>難易度表読み込み</code> を押します</li>
+          <li>曲一覧は難易度表データを基準に構築されます</li>
+        </ul>
+
+        <h3>2. 既存データを取り込む</h3>
+        <ul>
+          <li><code>CSV読み込み</code><br>縦データの履歴CSVを読み込みます</li>
+          <li><code>JSON読み込み</code><br>DBR難易度表対応形式のJSONを読み込みます</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>曲一覧の見方</h2>
+        <ul>
+          <li>曲カードには以下が表示されます
+            <ul>
+              <li>難易度</li>
+              <li>SPLv.</li>
+              <li>ベストクリアランプ</li>
+              <li>Best BP</li>
+              <li>Latest BP</li>
+              <li>最終プレー日</li>
+            </ul>
+          </li>
+          <li>カードを押すと、その曲が <code>プレー記録</code> に反映されます</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>プレー記録の付け方</h2>
+
+        <h3>1. 曲を選ぶ</h3>
+        <ul>
+          <li>曲一覧から曲カードを押します</li>
+        </ul>
+
+        <h3>2. 入力する</h3>
+        <ul>
+          <li><code>クリア</code></li>
+          <li><code>BP</code></li>
+          <li><code>スコア</code></li>
+          <li><code>メモ</code></li>
+        </ul>
+
+        <h3>3. 保存する</h3>
+        <ul>
+          <li><code>保存する</code> を押します</li>
+          <li>同一曲・同一日の記録がある場合は、その日の記録を更新します</li>
+        </ul>
+
+        <h3>4. メモ</h3>
+        <ul>
+          <li>メモは曲ごとに保存されます</li>
+          <li>メモ欄からフォーカスが外れた時に自動保存されます</li>
+          <li>メモだけを保持することもできます</li>
+        </ul>
+
+        <h3>5. 当日の記録削除</h3>
+        <ul>
+          <li><code>当日の記録を削除</code> を押すと、選択曲の今日の記録だけ削除します</li>
+        </ul>
+
+        <h3>6. 戻る</h3>
+        <ul>
+          <li><code>戻る</code> を押すと、選択中の曲カード位置へスクロールします</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>全体サマリー</h2>
+
+        <h3>横棒グラフ</h3>
+        <ul>
+          <li>現在の絞り込み軸に応じて、難易度帯ごとの内訳を表示します</li>
+          <li><code>Lv.</code></li>
+          <li><code>SPLv.</code></li>
+          <li><code>片手Lv.</code></li>
+          <li>棒の長さは一定で、内部をクリアランプ比率で積み上げています</li>
+        </ul>
+
+        <h3>クリアランプ枠</h3>
+        <ul>
+          <li><code>NO PLAY</code> などの枠を押すと、曲一覧側のクリアランプ絞り込みを切り替えます</li>
+          <li>最後の1個を無効化しようとした場合は全有効に戻ります</li>
+          <li>PCでは、同じ枠を短時間で2回押すと、そのランプだけ有効な状態にできます</li>
+          <li>スマホでは、枠を左にスワイプすると、そのランプだけ有効な状態にできます</li>
+          <li>件数表示は、現在の絞り込み条件に追従します</li>
+          <li><code>曲名</code> または <code>メモ</code> で絞り込んでいる間は、クリアランプ枠の操作は無効になります</li>
+        </ul>
+
+        <h3>フィルタ表示</h3>
+        <ul>
+          <li><code>フィルタを表示</code> から固定フィルタを開けます</li>
+          <li>対応項目:
+            <ul>
+              <li><code>INFINITAS</code></li>
+              <li><code>AC収録</code></li>
+              <li><code>未査定曲</code></li>
+              <li><code>おすすめ</code></li>
+              <li><code>リセット</code></li>
+            </ul>
+          </li>
+          <li><code>リセット</code> は固定フィルタだけを初期化します
+            <ul>
+              <li><code>INFINITAS</code></li>
+              <li><code>AC収録</code></li>
+              <li><code>未査定曲</code></li>
+              <li><code>おすすめ</code></li>
+            </ul>
+          </li>
+          <li><code>絞り込み軸</code>、その値、クリアランプ状態は維持されます</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>フローティング絞り込み</h2>
+
+        <h3>絞り込み軸</h3>
+        <ul>
+          <li><code>Lv.</code></li>
+          <li><code>SPLv.</code></li>
+          <li><code>片手Lv.</code></li>
+          <li><code>曲名</code></li>
+          <li><code>メモ</code></li>
+        </ul>
+
+        <h3>数値軸</h3>
+        <ul>
+          <li>スライダーで単一値を選択します</li>
+          <li>スライダーを離した時に確定します</li>
+        </ul>
+
+        <h3>曲名</h3>
+        <ul>
+          <li>曲名の部分一致で検索します</li>
+          <li>フォーカスアウト時に検索が確定します</li>
+          <li><code>解除</code> ボタンで直前の絞り込み状態へ戻せます</li>
+        </ul>
+
+        <h3>メモ</h3>
+        <ul>
+          <li>メモの部分一致で検索します</li>
+          <li>フォーカスアウト時に検索が確定します</li>
+          <li><code>解除</code> ボタンで直前の絞り込み状態へ戻せます</li>
+          <li>曲名検索欄とメモ検索欄の入力内容は、それぞれ別に復元されます</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>並び順</h2>
+        <ul>
+          <li><code>曲名</code></li>
+          <li><code>Lv.</code></li>
+          <li><code>SPLv.</code></li>
+          <li><code>片手Lv.</code></li>
+          <li><code>最終プレー</code>
+            <ul>
+              <li>最終プレー日の昇順です</li>
+              <li>履歴なしの曲は先頭に並びます</li>
+            </ul>
+          </li>
+          <li><code>クリアランプ</code></li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>データ入出力</h2>
+
+        <h3>CSV読み込み</h3>
+        <ul>
+          <li>縦データCSVを読み込みます</li>
+          <li>同一 <code>title + date</code> の行は上書きされます</li>
+          <li><code>memo</code> 列があれば曲メモも復元します</li>
+        </ul>
+
+        <h3>CSVを書き出す</h3>
+        <ul>
+          <li>現在の履歴を縦データCSVで書き出します</li>
+          <li>出力列:
+            <ul>
+              <li><code>date</code></li>
+              <li><code>title</code></li>
+              <li><code>level</code></li>
+              <li><code>lamp</code></li>
+              <li><code>bp</code></li>
+              <li><code>score</code></li>
+              <li><code>memo</code></li>
+            </ul>
+          </li>
+          <li>記録のない曲でも、メモだけある場合は <code>memo</code> 専用行として出力されます</li>
+        </ul>
+
+        <h3>JSON読み込み</h3>
+        <ul>
+          <li>DBR難易度表対応形式のJSONを読み込みます</li>
+          <li>読み込み時に記録日を指定できます</li>
+          <li>同一 <code>title + date</code> の既存記録は置き換えます</li>
+        </ul>
+
+        <h3>JSONを書き出す</h3>
+        <ul>
+          <li>DBR難易度表対応形式のJSONを書き出します</li>
+          <li>主に外部連携用です</li>
+        </ul>
+
+        <h3>データ全削除</h3>
+        <ul>
+          <li>保存済みのプレー記録を全削除します</li>
+          <li>難易度表データは残ります</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>注意点</h2>
+        <ul>
+          <li>曲一覧は難易度表データを基準にしています</li>
+          <li><code>片手Lv.</code> を絞り込み軸にした場合、片手難易度未設定曲は一覧と集計から除外されます</li>
+          <li><code>曲名</code> または <code>メモ</code> を絞り込み軸にした場合、クリアランプ枠の操作は無効になります</li>
+          <li>データ保存先はブラウザごとの <code>localStorage</code> です</li>
+          <li>ブラウザや端末を変えると、保存データは自動では共有されません</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>推奨運用</h2>
+        <ul>
+          <li>履歴管理の主データは <code>CSV</code> を使う</li>
+          <li>外部連携や難易度表対応データ交換には <code>JSON</code> を使う</li>
+          <li>作業前後で <code>CSV</code> または <code>JSON</code> を書き出してバックアップを取る</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>公開にあたって</h2>
+
+        <h3>免責事項</h3>
+        <ul>
+          <li>このアプリは個人制作の非公式ツールです。</li>
+          <li>このアプリの使用により発生したデータ消失、記録の不整合、その他の損害について、作者は責任を負いません。</li>
+          <li>データはブラウザの <code>localStorage</code> に保存されます。ブラウザの設定変更、キャッシュ削除、端末変更、プライベートブラウズ等により、保存データが失われる場合があります。</li>
+          <li>重要な記録は、定期的に <code>CSV</code> または <code>JSON</code> で書き出して保管してください。</li>
+          <li>難易度、収録状況、譜面情報、関連データの正確性や最新性は保証しません。</li>
+        </ul>
+
+        <h3>各難易度表への感謝</h3>
+        <p>このアプリは、<a href="https://dbr-difficulty.github.io/index.html" target="_blank" rel="noopener">DBR難易度表</a>および片手難易度表を基準に、クリア状況やプレー記録を管理するために制作したものです。</p>
+        <p>DBR難易度表、片手難易度表を作成・管理している方々、および各難易度表の整備に関わっているプレイヤーの皆様に感謝します。</p>
+
+        <h3>権利関係</h3>
+        <ul>
+          <li>このアプリは、beatmania IIDX、INFINITAS、KONAMI、その他各権利者とは関係のない非公式ツールです。</li>
+          <li>曲名、譜面名、ゲーム内用語等の権利は、それぞれの権利者に帰属します。</li>
+          <li>このアプリは、各権利者の権利を侵害する意図で公開しているものではありません。</li>
+        </ul>
+
+        <h3>プライバシー</h3>
+        <ul>
+          <li>このアプリは、入力されたプレー記録、BP、スコア、メモをブラウザ内の <code>localStorage</code> に保存します。</li>
+          <li>このアプリ単体では、保存データを外部サーバーへ送信しません。</li>
+          <li>GitHub Pages、ブラウザ、拡張機能、外部サービス等の挙動については、このアプリの管理範囲外です。</li>
+        </ul>
+
+        <h3>不具合・要望</h3>
+        <p>不具合や要望がある場合は、<a href="https://github.com/dbr-logger/dbr-logger.github.io/tree/main" target="_blank" rel="noopener">GitHubリポジトリ</a>のIssue等から連絡してください。</p>
+      </section>
+    </article>
+  </main>
+</body>
+</html>
