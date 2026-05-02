@@ -396,6 +396,8 @@ export function createStore() {
     records: [],
     difficultyTable: null,
     songNotes: {},
+    catalogVisibleSignature: "",
+    catalogVisibleTitleOrder: [],
     titleFilterBase: null,
     titleSortBase: "level",
     axisMemory: {
@@ -443,6 +445,48 @@ export function createStore() {
       filters: state.filters,
       sortMode: state.sortMode,
     });
+  }
+  
+  function createCatalogVisibleSignature() {
+    return JSON.stringify({
+      filters: state.filters,
+      sortMode: state.sortMode,
+    });
+  }
+  
+  function invalidateCatalogVisibleOrder() {
+    state.catalogVisibleSignature = "";
+    state.catalogVisibleTitleOrder = [];
+  }
+  
+  function applyStableVisibleOrder(visibleSongs) {
+    const signature = createCatalogVisibleSignature();
+  
+    if (
+      state.catalogVisibleSignature === signature
+      && state.catalogVisibleTitleOrder.length > 0
+    ) {
+      const songByTitle = new Map(visibleSongs.map((song) => [song.title, song]));
+      const usedTitles = new Set();
+  
+      const stableSongs = state.catalogVisibleTitleOrder
+        .map((title) => {
+          const song = songByTitle.get(title);
+          if (song) {
+            usedTitles.add(title);
+          }
+          return song;
+        })
+        .filter(Boolean);
+  
+      const appendedSongs = visibleSongs.filter((song) => !usedTitles.has(song.title));
+  
+      return [...stableSongs, ...appendedSongs];
+    }
+  
+    state.catalogVisibleSignature = signature;
+    state.catalogVisibleTitleOrder = visibleSongs.map((song) => song.title);
+    return visibleSongs;
   }
 
   function rememberTextQuery(axisMode, query) {
@@ -680,6 +724,7 @@ export function createStore() {
 
     state.axisMemory = nextAxisMemory;
     state.filters = nextStateFilters;
+    invalidateCatalogVisibleOrder();
     state.currentPage = 1;
     persist();
     
@@ -697,6 +742,7 @@ export function createStore() {
     state.filters = { ...state.titleFilterBase };
     state.titleFilterBase = null;
     state.sortMode = state.titleSortBase;
+    invalidateCatalogVisibleOrder();
     state.currentPage = 1;
     persist();
     ensureSelectedSong();
@@ -724,6 +770,7 @@ export function createStore() {
     }
 
     state.sortMode = normalized;
+    invalidateCatalogVisibleOrder();
     state.currentPage = 1;
     persist();
     ensureSelectedSong();
@@ -898,6 +945,7 @@ export function createStore() {
     const preservedRecords = state.records.filter((record) => !importedKeys.has(`${record.title}::${record.date}`));
 
     state.records = [...preservedRecords, ...importedRecords].sort(sortRecords);
+    invalidateCatalogVisibleOrder();
     state.currentPage = 1;
     state.statusMessage = `JSONを読み込みました。${importedRecords.length} 件を取り込み、合計 ${state.records.length} 件になりました。`;
     persist();
@@ -928,6 +976,7 @@ export function createStore() {
       ...state.songNotes,
       ...songNotes,
     };
+    invalidateCatalogVisibleOrder();
     state.currentPage = 1;
     state.statusMessage = `CSVを読み込みました。${importedRecords.length} 件を取り込み、合計 ${state.records.length} 件になりました。`;
     persist();
@@ -938,6 +987,7 @@ export function createStore() {
 
   function clearAllRecords() {
     state.records = [];
+    invalidateCatalogVisibleOrder();
     state.currentPage = 1;
     state.statusMessage = "プレー記録をすべて削除しました。";
     persist();
@@ -948,6 +998,7 @@ export function createStore() {
   async function importDifficultyTable() {
     const result = await fetchDifficultyTable();
     state.difficultyTable = result;
+    invalidateCatalogVisibleOrder();
     state.statusMessage = `難易度表を読み込みました。${result.titleCount}曲 / ${result.entries.length}譜面`;
     persist();
     emit();
@@ -991,7 +1042,8 @@ export function createStore() {
 
       return compareLevelValue(a, b) || compareSplvValue(a, b) || compareTitleValue(a, b);
     });
-    const visibleSongs = songStates.filter((entry) => matchesFiltersFor(entry, state.filters));
+    const filteredVisibleSongs = songStates.filter((entry) => matchesFiltersFor(entry, state.filters));
+    const visibleSongs = applyStableVisibleOrder(filteredVisibleSongs);
     const summaryFilters = isTextAxisMode(state.filters.axisMode) && state.titleFilterBase
       ? state.titleFilterBase
       : state.filters;
