@@ -1245,4 +1245,5 @@ td {
 .manual-content {
   max-width: 860px;
   margin: 0 auto;
+  line-height: 1.75;
 }
