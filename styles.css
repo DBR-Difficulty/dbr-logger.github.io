@@ -1327,7 +1327,7 @@ html[data-theme="dark"] .summary-toggle-button:hover {
 }
 
 .proposal-success {
-  background: var(--panel-strong);
+  background: #f5f5f5;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   display: grid;
@@ -1741,9 +1741,12 @@ html[data-theme="dark"] .recommend-chip input:checked + span {
 html[data-theme="dark"] .summary-lamp-item,
 html[data-theme="dark"] .song-card,
 html[data-theme="dark"] .selected-song-card,
-html[data-theme="dark"] .proposal-success,
 html[data-theme="dark"] .proposal-form {
   background: rgba(20, 26, 31, 0.92);
+}
+
+html[data-theme="dark"] .proposal-success {
+  background: #191919;
 }
 
 html[data-theme="dark"] .proposal-form {

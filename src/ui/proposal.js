@@ -2,7 +2,7 @@ import { formatIsoDate, todayIso } from "../utils/date.js";
 import { escapeHtml } from "../utils/html.js";
 
 const GAS_URL =
-  "https://script.google.com/macros/s/AKfycbwAqEgEmymWS0Ztge7CKinjSiEPW8gYvCnA_qk1qxjk-gLo1xjT4dBhrGkISHZeTKZR/exec";
+  "https://script.google.com/macros/s/AKfycbzO39jLddNn2o_kYLEg27ApKPZlRwTBaTsTbCo_PPKlwYs109tFPkxnGrEvO96j2L1ERg/exec";
 
 const RECOMMEND_OPTIONS = [
   { value: "", label: "（選択）" },
@@ -14,8 +14,6 @@ const RECOMMEND_OPTIONS = [
 ];
 const NEW_PROPOSAL_DUPLICATE_ERROR =
   "Error: 既に同曲、同譜面に対しての提案が存在します。管理用スプレッドシートをご確認ください。提案内容に対して異議がある場合、異議申し立て列に記載してください。";
-const NEW_PROPOSAL_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1R-bgS7CZ1BBTzsk4KRKRSmBAZWNotZnQLfWtZFQr-Ek/edit?gid=1709558806#gid=1709558806";
 
 function todayFormatted() {
   return formatIsoDate(todayIso());
@@ -240,6 +238,18 @@ function getProposalTypeLabel(type) {
   return "おすすめ提案";
 }
 
+function getProposalSheetLabel(type) {
+  if (type === "new") {
+    return "新規提案シート";
+  }
+
+  if (type === "change") {
+    return "変更提案シート";
+  }
+
+  return "おすすめ提案シート";
+}
+
 function renderProposalSuccess(container, type, sheetUrl) {
   if (!container) {
     return;
@@ -261,12 +271,13 @@ function renderProposalSuccess(container, type, sheetUrl) {
   container.dataset.openType = "success";
 }
 
-function renderProposalError(statusEl, type, message) {
-  if (type === "new" && String(message ?? "").trim() === NEW_PROPOSAL_DUPLICATE_ERROR) {
+function renderProposalError(statusEl, type, message, sheetUrl) {
+  if (String(message ?? "").trim() === NEW_PROPOSAL_DUPLICATE_ERROR) {
+    const sheetLabel = getProposalSheetLabel(type);
     statusEl.innerHTML = `
       <div class="proposal-status-error">
         <p>この譜面はすでに提案されています。</p>
-        <p>提案内容を確認する場合は、<a class="proposal-link" href="${escapeHtml(NEW_PROPOSAL_SHEET_URL)}" target="_blank" rel="noopener">新規提案シート</a>を参照してください（外部スプレッドシートを開きます）。</p>
+        <p>提案内容を確認する場合は、<a class="proposal-link" href="${escapeHtml(sheetUrl)}" target="_blank" rel="noopener">${escapeHtml(sheetLabel)}</a>を参照してください（外部スプレッドシートを開きます）。</p>
       </div>
     `;
     return;
@@ -359,7 +370,7 @@ async function handleProposalSubmit(formEl, type, entry, today) {
       const container = formEl.parentElement;
       renderProposalSuccess(container, type, sheetUrl);
     } else {
-      renderProposalError(statusEl, type, result.message);
+      renderProposalError(statusEl, type, result.message, sheetUrl);
       submitBtn.disabled = false;
     }
   } catch (err) {
