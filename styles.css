@@ -398,6 +398,12 @@ td {
   font-weight: 700;
 }
 
+.proposal-submit-btn.button-primary {
+  background: linear-gradient(135deg, #eb6d5c, #d65b4d);
+  box-shadow: 0 12px 24px rgba(214, 91, 77, 0.22);
+  color: white;
+}
+
 .button-secondary {
   background: white;
   border: 1px solid rgba(217, 91, 77, 0.24);
@@ -414,6 +420,12 @@ td {
 html[data-theme="dark"] .button-primary {
   background: linear-gradient(135deg, #3d696f, #314c50);
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.18);
+}
+
+html[data-theme="dark"] .proposal-submit-btn.button-primary {
+  background: linear-gradient(135deg, #d98a3d, #b56424);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.22);
+  color: #fff8ef;
 }
 
 html[data-theme="dark"] .summary-filters-toggle {

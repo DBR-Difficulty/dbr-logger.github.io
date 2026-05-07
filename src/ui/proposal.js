@@ -107,7 +107,7 @@ function renderProposalForm(container, type, entry) {
       ${buildFormFields(type, entry)}
     </div>
     <div class="action-group proposal-form-actions">
-      <button type="button" class="button button-secondary proposal-submit-btn">提案を送信</button>
+      <button type="button" class="button button-primary proposal-submit-btn">送信</button>
       <button type="button" class="button button-tertiary proposal-cancel-btn">キャンセル</button>
     </div>
     <div class="proposal-status"></div>
