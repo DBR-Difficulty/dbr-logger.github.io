@@ -17,11 +17,19 @@
   --lamp-no-play: #d7dadd;
   --lamp-failed: #7f4742;
   --lamp-assist: #a995d6;
-  --lamp-easy: #addfb4;
+  --lamp-easy: #86c790;
   --lamp-clear: #b0e2ff;
   --lamp-hard: #e06767;
-  --lamp-exh: #f0df8d;
+  --lamp-exh: #f2d94f;
   --lamp-fc: #2f3236;
+  --lamp-no-play-soft: rgba(215, 218, 221, 0.72);
+  --lamp-failed-soft: rgba(127, 71, 66, 0.72);
+  --lamp-assist-soft: rgba(169, 149, 214, 0.72);
+  --lamp-easy-soft: rgba(134, 199, 144, 0.72);
+  --lamp-clear-soft: rgba(176, 226, 255, 0.72);
+  --lamp-hard-soft: rgba(224, 103, 103, 0.72);
+  --lamp-exh-soft: rgba(242, 217, 79, 0.72);
+  --lamp-fc-soft: rgba(47, 50, 54, 0.72);
   --shadow: 0 24px 60px rgba(43, 54, 61, 0.12);
   --radius-xl: 28px;
   --radius-lg: 20px;
@@ -56,6 +64,14 @@ html[data-theme="dark"] {
   --lamp-hard: #d35f58;
   --lamp-exh: #eadf58;
   --lamp-fc: #f4f7f8;
+  --lamp-no-play-soft: rgba(61, 69, 75, 0.78);
+  --lamp-failed-soft: rgba(98, 56, 52, 0.78);
+  --lamp-assist-soft: rgba(109, 95, 153, 0.78);
+  --lamp-easy-soft: rgba(111, 180, 95, 0.78);
+  --lamp-clear-soft: rgba(99, 191, 220, 0.78);
+  --lamp-hard-soft: rgba(211, 95, 88, 0.78);
+  --lamp-exh-soft: #eadf58;
+  --lamp-fc-soft: rgba(244, 247, 248, 0.78);
   --shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
 }
 
@@ -824,6 +840,7 @@ html[data-theme="dark"] .summary-toggle-button:hover {
 .pagination-bar {
   margin-top: 14px;
   margin-bottom: 14px;
+  min-width: 0;
 }
 
 .pagination-bar:empty {
@@ -836,6 +853,7 @@ html[data-theme="dark"] .summary-toggle-button:hover {
   flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
+  min-width: 0;
 }
 
 .pagination-label {
@@ -1045,7 +1063,7 @@ html[data-theme="dark"] .summary-toggle-button:hover {
 }
 
 .song-card {
-  padding: 16px 16px 16px 23px;
+  padding: 16px 16px 16px 22px;
   text-align: left;
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
@@ -1130,7 +1148,7 @@ html[data-theme="dark"] .summary-toggle-button:hover {
 }
 
 .selected-song-card {
-  padding: 18px 18px 18px 25px;
+  padding: 18px 18px 18px 24px;
   margin-bottom: 18px;
 }
 
@@ -2121,6 +2139,15 @@ html[data-theme="dark"] .proposal-success-body a {
 
   .catalog-header .header-select select {
     min-width: 104px;
+  }
+
+  .pagination-controls {
+    gap: 6px;
+  }
+
+  .pagination-controls .button {
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .action-group {

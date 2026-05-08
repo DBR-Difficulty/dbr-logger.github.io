@@ -6,6 +6,16 @@ const { formatIsoDate, todayIso } = await import(`../utils/date.js${MODULE_VERSI
 const { renderProposalButton } = await import(`./proposal.js${MODULE_VERSION}`);
 const { escapeHtml } = await import(`../utils/html.js${MODULE_VERSION}`);
 
+const LAMP_SOFT_COLORS = {
+  "NO PLAY": "var(--lamp-no-play-soft)",
+  FAILED: "var(--lamp-failed-soft)",
+  ASSIST: "var(--lamp-assist-soft)",
+  EASY: "var(--lamp-easy-soft)",
+  CLEAR: "var(--lamp-clear-soft)",
+  HARD: "var(--lamp-hard-soft)",
+  EXH: "var(--lamp-exh-soft)",
+  FC: "var(--lamp-fc-soft)",
+};
 const LAMP_COLORS = {
   "NO PLAY": "var(--lamp-no-play)",
   FAILED: "var(--lamp-failed)",
@@ -16,7 +26,10 @@ const LAMP_COLORS = {
   EXH: "var(--lamp-exh)",
   FC: "var(--lamp-fc)",
 };
-const getLampColor = (lamp) => LAMP_COLORS[lamp] ?? LAMP_COLORS["NO PLAY"];
+const getSoftLampColor = (lamp) => LAMP_SOFT_COLORS[lamp] ?? "transparent";
+const getLampColor = (lamp) => LAMP_COLORS[lamp] ?? "transparent";
+const getSummaryBandLampColor = (lamp) => (lamp === "NO PLAY" || lamp === "FC") ? getLampColor(lamp) : getSoftLampColor(lamp);
+const getCardLampColor = (lamp) => lamp === "NO PLAY" ? "transparent" : getLampColor(lamp);
 const RECOMMEND_OPTIONS = [
   { value: "", label: "－" },
   { value: "△", label: "△" },
@@ -559,7 +572,7 @@ function renderSummaryBands(summary) {
       const segment = `
         <span
           class="summary-band-segment"
-          style="flex:${flexGrow} 1 0px;background:${LAMP_COLORS[lamp]}"
+          style="flex:${flexGrow} 1 0px;background:${getSummaryBandLampColor(lamp)}"
           aria-hidden="true"
         ></span>
       `;
@@ -602,7 +615,7 @@ function renderSummary(summaryContainer, summary, filters) {
       ${lampFilterDisabled ? "disabled aria-disabled=\"true\"" : ""}
     >
       <div class="summary-lamp-main">
-        <span class="summary-lamp-dot" style="background:${LAMP_COLORS[lamp]}"></span>
+        <span class="summary-lamp-dot" style="background:${getLampColor(lamp)}"></span>
         <span class="summary-lamp-label">${escapeHtml(lamp)}</span>
       </div>
       <div class="summary-lamp-values">
@@ -787,7 +800,7 @@ function renderSelectedSong(selectedSongContainer, selectedSong, songs) {
   }
 
   selectedSongContainer.classList.toggle("is-proposed", Boolean(selectedSong.isProposed));
-  selectedSongContainer.style.setProperty("--card-lamp-color", getLampColor(selectedSong.bestLamp));
+  selectedSongContainer.style.setProperty("--card-lamp-color", getCardLampColor(selectedSong.bestLamp));
 
   const historyCountBadge = selectedSong.entryCount > 0
     ? badge(`履歴 ${selectedSong.entryCount} 件`, "pill-neutral")
@@ -820,7 +833,7 @@ function renderCatalog(catalogContainer, songs, selectedTitle) {
     const selectedClass = song.title === selectedTitle ? "is-selected" : "";
     const proposedClass = song.isProposed ? "is-proposed" : "";
     const encodedTitle = encodeURIComponent(song.title);
-    const lampColor = getLampColor(song.bestLamp);
+    const lampColor = getCardLampColor(song.bestLamp);
     return `
       <button class="song-card ${selectedClass} ${proposedClass}" type="button" data-title="${encodedTitle}" style="--card-lamp-color:${escapeHtml(lampColor)}">
         <div class="song-card-meta">
