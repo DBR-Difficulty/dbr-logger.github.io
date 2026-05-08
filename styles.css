@@ -1411,6 +1411,16 @@ html[data-theme="dark"] .summary-toggle-button:hover {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.entry-score-row {
+  grid-template-columns: repeat(auto-fit, minmax(18em, 1fr));
+}
+
+.entry-score-row #bp-input,
+.entry-score-row #score-input {
+  min-width: 0;
+  width: 100%;
+}
+
 .field {
   display: grid;
   gap: 8px;
