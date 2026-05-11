@@ -1541,7 +1541,7 @@ html[data-theme="dark"] .summary-toggle-button:hover {
   padding-inline: 18px;
 }
 
-.floating-axis-filter.is-at-bottom .floating-filter-toggle,
+/* .floating-axis-filter.is-at-bottom .floating-filter-toggle,
 .floating-axis-filter.is-at-bottom .floating-filter-clear {
   opacity: 0.5;
 }
@@ -1551,7 +1551,7 @@ html[data-theme="dark"] .summary-toggle-button:hover {
 .floating-axis-filter.is-at-bottom .floating-filter-clear:hover,
 .floating-axis-filter.is-at-bottom .floating-filter-clear:focus-visible {
   opacity: 1;
-}
+} */
 
 .floating-filter-clear {
   font-size: 0.84rem;
@@ -2483,4 +2483,11 @@ html[data-theme="dark"] .pill-proposed {
   opacity: 1;
   filter: none;
   cursor: not-allowed;
+}
+
+@media (min-width: 721px) {
+  /* HISTORY panel のみ下余白を追加（floating-filter-toggle と被らないため） */
+  .panel-history {
+    margin-bottom: 66px;
+  }
 }
