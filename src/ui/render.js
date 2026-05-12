@@ -194,6 +194,15 @@ function formatSplvLabel(song) {
   return song.splv ? `SP☆${song.splv}` : null;
 }
 
+function formatKatateTitleSuffix(song) {
+  if (song.katateValue === null || song.katateValue === undefined || song.katateValue === "") {
+    return "";
+  }
+
+  const label = formatKatateFilterValue(song.katateValue);
+  return label ? `片手☆${label}` : "";
+}
+
 function formatRecommendDisplay(recommend) {
   const normalized = String(recommend ?? "").trim();
   return normalized || "－";
@@ -936,7 +945,7 @@ function renderFloatingAxisFilter(container, filters, bounds, isOpen, previewSta
   container.querySelectorAll('input[type="range"]').forEach(updateSliderFill);
 }
 
-function renderSelectedSong(selectedSongContainer, selectedSong, songs) {
+function renderSelectedSong(selectedSongContainer, selectedSong, songs, options = {}) {
   selectedSongContainer.classList.remove("is-proposed");
   selectedSongContainer.style.removeProperty("--card-lamp-color");
 
@@ -951,10 +960,16 @@ function renderSelectedSong(selectedSongContainer, selectedSong, songs) {
   const historyCountBadge = selectedSong.entryCount > 0
     ? badge(`履歴 ${selectedSong.entryCount} 件`, "pill-neutral")
     : "";
+  const katateTitleSuffix = options.showKatateTitleSuffix
+    ? formatKatateTitleSuffix(selectedSong)
+    : "";
+  const katateTitleSuffixHtml = katateTitleSuffix
+    ? `<span class="song-card-title-katate">(${escapeHtml(katateTitleSuffix)})</span>`
+    : "";  
 
   selectedSongContainer.innerHTML = `
     <p class="eyebrow">Selected Song</p>
-    <h3>${escapeHtml(selectedSong.title)}</h3>
+    <h3>${escapeHtml(selectedSong.title)}${katateTitleSuffixHtml}</h3>
     <p class="selected-song-note">${escapeHtml(formatSongMemoDisplay(selectedSong))}</p>
     <div class="selected-song-meta">
       ${selectedSong.isProposed ? badge("新規提案中", "pill-proposed") : ""}
@@ -969,7 +984,7 @@ function renderSelectedSong(selectedSongContainer, selectedSong, songs) {
   `;
 }
 
-function renderCatalog(catalogContainer, songs, selectedTitle) {
+function renderCatalog(catalogContainer, songs, selectedTitle, options = {}) {
   if (songs.length === 0) {
     catalogContainer.innerHTML = '<div class="empty-state">該当する曲がありません。</div>';
     return;
@@ -983,7 +998,12 @@ function renderCatalog(catalogContainer, songs, selectedTitle) {
     const historyCountBadge = song.entryCount > 0
       ? badge(`履歴 ${song.entryCount} 件`, "pill-neutral")
       : "";
-      
+    const katateTitleSuffix = options.showKatateTitleSuffix
+      ? formatKatateTitleSuffix(song)
+      : "";
+    const katateTitleSuffixHtml = katateTitleSuffix
+      ? `<span class="song-card-title-katate">(${escapeHtml(katateTitleSuffix)})</span>`
+      : "";      
     return `
       <button class="song-card ${selectedClass} ${proposedClass}" type="button" data-title="${encodedTitle}" style="--card-lamp-color:${escapeHtml(lampColor)}">
         <div class="song-card-meta">
@@ -992,7 +1012,7 @@ function renderCatalog(catalogContainer, songs, selectedTitle) {
           ${formatSplvLabel(song) ? badge(formatSplvLabel(song), "pill-splv") : ""}
           ${badge(song.bestLamp, "pill-lamp")}
         </div>
-        <p class="song-card-title">${escapeHtml(song.title)}</p>
+        <p class="song-card-title">${escapeHtml(song.title)}${katateTitleSuffixHtml}</p>
         <p class="song-card-note">${escapeHtml(formatSongMemoDisplay(song))}</p>
         <div class="song-card-meta">
           ${badge(`最小 ${formatBp(song.bestBp)}`, "pill-neutral")}
@@ -3741,13 +3761,17 @@ export function createRenderer(store) {
         floatingQueryRestoreFocus = false;
       }
       floatingQuerySelection = null;
-      renderCatalog(nodes.catalog, snapshot.pagedSongs, snapshot.selectedSong?.title ?? null);
+      renderCatalog(nodes.catalog, snapshot.pagedSongs, snapshot.selectedSong?.title ?? null, {
+        showKatateTitleSuffix: snapshot.sortMode === "katate" || snapshot.filters.axisMode === "katate",
+      });
       renderPagination(nodes.catalogPaginationTop, snapshot.pagination, {
         showSortDirectionToggle: true,
         sortDirection: snapshot.sortDirection,
       });
       renderPagination(nodes.catalogPaginationBottom, snapshot.pagination);
-      renderSelectedSong(nodes.selectedSong, snapshot.selectedSong, snapshot.pagedSongs);
+      renderSelectedSong(nodes.selectedSong, snapshot.selectedSong, snapshot.pagedSongs, {
+        showKatateTitleSuffix: snapshot.sortMode === "katate" || snapshot.filters.axisMode === "katate",
+      });
       renderProposalButton(
         nodes.selectedSong,
         snapshot.selectedSong,

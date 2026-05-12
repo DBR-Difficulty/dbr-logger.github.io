@@ -2527,3 +2527,16 @@ html[data-theme="dark"] .pill-proposed {
     margin-top: 66px;
   }
 }
+
+.song-card-title-katate {
+  color: var(--muted);
+  font-size: 0.82em;
+  font-weight: 800;
+  margin-left: 0.35em;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.selected-song-title .song-card-title-katate {
+  font-size: 0.92em;
+}
