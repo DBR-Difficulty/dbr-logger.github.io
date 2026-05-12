@@ -1509,12 +1509,14 @@ html[data-theme="dark"] .summary-toggle-button:hover {
 }
 
 .floating-axis-filter {
+  backface-visibility: hidden;
   bottom: 20px;
   display: grid;
   gap: 12px;
   pointer-events: none;
   position: fixed;
   right: 20px;
+  transform: translateZ(0);
   width: min(360px, calc(100vw - 32px));
   z-index: 30;
 }
@@ -1566,6 +1568,7 @@ html[data-theme="dark"] .summary-toggle-button:hover {
 }
 
 .floating-filter-panel {
+  backface-visibility: hidden;
   background: rgba(255, 252, 247, 0.96);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
@@ -1574,6 +1577,7 @@ html[data-theme="dark"] .summary-toggle-button:hover {
   gap: 18px;
   overscroll-behavior: contain;
   padding: 20px;
+  transform: translateZ(0);
 }
 
 .floating-filter-panel.is-open {
