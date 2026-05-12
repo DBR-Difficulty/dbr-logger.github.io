@@ -1789,6 +1789,43 @@ export function createStore() {
     return exportVerticalCsv(state.records, state.songNotes, state.difficultyTable);
   }
 
+  function normalizeJsonDuplicateLamp(value) {
+    return LAMP_OPTIONS.includes(value) && value !== "NO PLAY" ? value : null;
+  }
+
+  function normalizeJsonDuplicateNumber(value) {
+    const parsed = parseOptionalNumber(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function hasSameJsonRecordValues(a, b) {
+    return normalizeJsonDuplicateLamp(a?.lamp) === normalizeJsonDuplicateLamp(b?.lamp)
+      && normalizeJsonDuplicateNumber(a?.bp) === normalizeJsonDuplicateNumber(b?.bp)
+      && normalizeJsonDuplicateNumber(a?.score) === normalizeJsonDuplicateNumber(b?.score);
+  }
+
+  function isSameJsonRecordChart(a, b) {
+    if (a?.textageKey && b?.textageKey) {
+      return a.textageKey === b.textageKey;
+    }
+
+    return a?.title === b?.title;
+  }
+
+  function hasDuplicateFutureJsonRecord(record, existingRecords, referenceDate) {
+    return existingRecords.some((existing) => {
+      if (!existing.date || existing.date <= referenceDate) {
+        return false;
+      }
+
+      if (!isSameJsonRecordChart(record, existing)) {
+        return false;
+      }
+
+      return hasSameJsonRecordValues(record, existing);
+    });
+  }
+
   function isJsonRecordImprovement(record, currentState) {
     const importedLamp = LAMP_OPTIONS.includes(record?.lamp) ? record.lamp : "NO PLAY";
     const importedBp = parseOptionalNumber(record?.bp);
@@ -1830,7 +1867,15 @@ export function createStore() {
           comparableRecordIndex.get(selectedEntry.title) ?? [],
         );
 
-        return isJsonRecordImprovement(record, currentState);
+        if (!isJsonRecordImprovement(record, currentState)) {
+          return false;
+        }
+
+        if (hasDuplicateFutureJsonRecord(record, state.records, referenceDate)) {
+          return false;
+        }
+
+        return true;
       })
       .map((record) => {
         const selectedEntry = catalogEntryByTitle.get(record.title);
