@@ -1055,6 +1055,8 @@ function renderSelectedSong(selectedSongContainer, selectedSong, songs, options 
 }
 
 function renderCatalog(catalogContainer, songs, selectedTitle, options = {}) {
+  catalogContainer.classList.toggle("is-list-view", options.viewMode === "list");
+
   if (songs.length === 0) {
     catalogContainer.innerHTML = '<div class="empty-state">該当する曲がありません。</div>';
     return;
@@ -1073,7 +1075,33 @@ function renderCatalog(catalogContainer, songs, selectedTitle, options = {}) {
       : "";
     const katateTitleSuffixHtml = katateTitleSuffix
       ? `<span class="song-card-title-katate">(${escapeHtml(katateTitleSuffix)})</span>`
-      : "";      
+      : "";
+
+    if (options.viewMode === "list") {
+      const listMetaText = [
+        // song.isProposed ? "新規提案中" : "",
+        formatSplvLabel(song),
+        `BP ${formatBp(song.bestBp)}/${formatBp(song.currentBp)}`,
+        song.latestDate ? formatIsoDate(song.latestDate).slice(5) : "履歴なし",
+        song.entryCount > 0 ? `履歴 ${song.entryCount} 件` : "",
+      ].filter(Boolean).join(" / ");
+
+      return `
+        <button class="song-card ${selectedClass} ${proposedClass}" type="button" data-title="${encodedTitle}" style="--card-lamp-color:${escapeHtml(lampColor)}">
+          <p class="song-card-title">
+            <span class="song-card-list-title-tags">
+              ${badge(formatDifficultyLabel(song), "pill-level")}
+            </span>
+            <span class="song-card-list-title-text">${escapeHtml(song.title)}${katateTitleSuffixHtml}</span>
+          </p>
+          <p class="song-card-note">
+            <span>${escapeHtml(formatSongMemoDisplay(song))}</span>
+            <span class="song-card-list-meta-text">${escapeHtml(listMetaText)}</span>
+          </p>
+        </button>
+      `;
+    }
+
     return `
       <button class="song-card ${selectedClass} ${proposedClass}" type="button" data-title="${encodedTitle}" style="--card-lamp-color:${escapeHtml(lampColor)}">
         <div class="song-card-meta">
@@ -1899,6 +1927,7 @@ export function createRenderer(store) {
     floatingAxisFilter: document.querySelector("#floating-axis-filter"),
     catalogPanel: document.querySelector("#song-catalog")?.closest(".panel"),
     catalogSortSelect: document.querySelector("#catalog-sort-select"),
+    catalogViewToggle: document.querySelector("#catalog-view-toggle"),
     catalogMeta: document.querySelector("#catalog-meta"),
     catalogPaginationTop: document.querySelector("#catalog-pagination-top"),
     catalogPaginationBottom: document.querySelector("#catalog-pagination-bottom"),
@@ -3384,6 +3413,9 @@ export function createRenderer(store) {
 
     store.setSortMode(target.value);
   });
+  nodes.catalogViewToggle?.addEventListener("click", () => {
+    store.toggleCatalogViewMode();
+  });
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !event.isComposing) {
@@ -3848,6 +3880,7 @@ export function createRenderer(store) {
       floatingQuerySelection = null;
       renderCatalog(nodes.catalog, snapshot.pagedSongs, snapshot.selectedSong?.title ?? null, {
         showKatateTitleSuffix: snapshot.sortMode === "katate" || snapshot.filters.axisMode === "katate",
+        viewMode: snapshot.catalogViewMode,
       });
       renderPagination(nodes.catalogPaginationTop, snapshot.pagination, {
         showSortDirectionToggle: true,
@@ -3951,6 +3984,14 @@ export function createRenderer(store) {
       }
       if (nodes.catalogSortSelect) {
         nodes.catalogSortSelect.value = snapshot.sortMode;
+      }
+      if (nodes.catalogViewToggle) {
+        const isListView = snapshot.catalogViewMode === "list";
+        nodes.catalogViewToggle.innerHTML = isListView
+          ? '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect><rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect></svg>'
+          : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="3" rx="1.5"></rect><rect x="4" y="10.5" width="16" height="3" rx="1.5"></rect><rect x="4" y="16" width="16" height="3" rx="1.5"></rect></svg>';
+        nodes.catalogViewToggle.setAttribute("aria-pressed", isListView ? "true" : "false");
+        nodes.catalogViewToggle.title = isListView ? "箱型表示に切り替え" : "一覧表示に切り替え";
       }
     },
   };

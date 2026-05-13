@@ -322,6 +322,10 @@ function normalizeSortDirection(sortDirection) {
   return sortDirection === "desc" ? "desc" : "asc";
 }
 
+function normalizeCatalogViewMode(catalogViewMode) {
+  return catalogViewMode === "list" ? "list" : "card";
+}
+
 function normalizeDifficultyTableUpdatedAt(stored) {
   if (Number.isFinite(stored?.difficultyTableUpdatedAt)) {
     return stored.difficultyTableUpdatedAt;
@@ -441,6 +445,7 @@ function normalizeStoredData(stored) {
       [restoredFilters.axisMode]: normalizedSortMode,
     },
     sortDirection: normalizeSortDirection(stored.sortDirection),
+    catalogViewMode: normalizeCatalogViewMode(stored.catalogViewMode),
     titleSortBase: normalizeSortMode(stored.titleSortBase),
   };
 }
@@ -999,6 +1004,7 @@ export function createStore() {
     },
     sortMode: "level",
     sortDirection: "asc",
+    catalogViewMode: "card",
     currentPage: 1,
     selectedTitle: null,
     statusMessage: "",
@@ -1037,6 +1043,7 @@ export function createStore() {
       filters: state.filters,
       sortMode: state.sortMode,
       sortDirection: state.sortDirection,
+      catalogViewMode: state.catalogViewMode,
     });
   }
 
@@ -1321,6 +1328,7 @@ export function createStore() {
         state.filters = normalized.filters;
         state.sortMode = normalized.sortMode;
         state.sortDirection = normalized.sortDirection;
+        state.catalogViewMode = normalized.catalogViewMode;
 
         if (state.filters.axisMode === "date" && (!state.filters.dateStart || !state.filters.dateEnd)) {
           const defaultDateRange = getDefaultDateRangeFromRecords(state.records);
@@ -1604,6 +1612,12 @@ export function createStore() {
     state.currentPage = 1;
     persist();
     ensureSelectedSong();
+    emit();
+  }
+
+  function toggleCatalogViewMode() {
+    state.catalogViewMode = state.catalogViewMode === "list" ? "card" : "list";
+    persist();
     emit();
   }
 
@@ -2183,6 +2197,7 @@ export function createStore() {
     clearDateFilter,
     setSortMode,
     toggleSortDirection,
+    toggleCatalogViewMode,
     setPage,
     selectSong,
     saveRecord,
