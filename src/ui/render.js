@@ -1734,6 +1734,10 @@ export function createRenderer(store) {
     return canAutoScrollElement(nodes.catalogPanel ?? nodes.catalog);
   }
 
+  function shouldScrollCatalogPanelUpward() {
+    return canAutoScrollElementUpward(nodes.catalogPanel ?? nodes.catalog);
+  }
+
   function syncFloatingDockClass() {
     if (!nodes.floatingAxisFilter) {
       return;
@@ -2342,7 +2346,7 @@ export function createRenderer(store) {
       axisValue: "",
       dateStart: nodes.floatingAxisFilter.querySelector("[data-date-start]")?.value ?? "",
       dateEnd: nodes.floatingAxisFilter.querySelector("[data-date-end]")?.value ?? "",
-    }, { scrollToCatalog: true });
+    });
   }
 
   function scheduleDateFilterCommitIfBlurred() {
@@ -2461,7 +2465,7 @@ export function createRenderer(store) {
       const activeFilters = filterDraft ?? store.getSnapshot().filters;
       clearFloatingAxisFilter();
       if (!isTextAxisMode(activeFilters.axisMode) && !isDateAxisMode(activeFilters.axisMode)) {
-        closeFloatingFilter({ preserveScroll: false });
+        closeFloatingFilter({ preserveScroll: !shouldScrollCatalogPanelUpward() });
       }
       return;
     }
@@ -2590,7 +2594,7 @@ export function createRenderer(store) {
       const activeFilters = filterDraft ?? store.getSnapshot().filters;
       clearFloatingAxisFilter();
       if (!isTextAxisMode(activeFilters.axisMode) && !isDateAxisMode(activeFilters.axisMode)) {
-        closeFloatingFilter({ preserveScroll: false });
+        closeFloatingFilter({ preserveScroll: !shouldScrollCatalogPanelUpward() });
       }
       return;
     }
@@ -2674,7 +2678,7 @@ export function createRenderer(store) {
       releaseFloatingAxisSinglePointerCapture();
       floatingAxisSingleDragState = null;
 
-      const shouldScroll = shouldCloseFloatingFilterAfterSliderCommit();
+      const shouldScroll = shouldScrollCatalogPanelUpward();
       if (commitFloatingAxisSliderShortcut() && shouldScroll) {
         window.requestAnimationFrame(scrollCatalogPanelIntoView);
       }
@@ -2688,7 +2692,7 @@ export function createRenderer(store) {
       releaseFloatingAxisRangePointerCapture();
       floatingAxisRangeDragState = null;
 
-      const shouldScroll = shouldCloseFloatingFilterAfterSliderCommit();
+      const shouldScroll = shouldScrollCatalogPanelUpward();
       if (commitFloatingAxisRange() && shouldScroll) {
         window.requestAnimationFrame(scrollCatalogPanelIntoView);
       }
@@ -3100,7 +3104,7 @@ export function createRenderer(store) {
     if (isDateAxisMode(activeFilters.axisMode)) {
       store.clearDateFilter();
       closeFloatingFilter({
-        preserveScroll: !canAutoScrollElement(nodes.catalogPanel ?? nodes.catalog),
+        preserveScroll: !shouldScrollCatalogPanelUpward(),
       });
       return;
     }
