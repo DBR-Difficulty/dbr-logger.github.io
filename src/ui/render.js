@@ -1084,7 +1084,7 @@ function renderCatalog(catalogContainer, songs, selectedTitle, options = {}) {
         `BP ${formatBp(song.bestBp)}/${formatBp(song.currentBp)}`,
         song.latestDate ? formatIsoDate(song.latestDate).slice(5) : "履歴なし",
         song.entryCount > 0 ? `履歴 ${song.entryCount} 件` : "",
-      ].filter(Boolean).join(" / ");
+      ].filter(Boolean).join(", ");
 
       return `
         <button class="song-card ${selectedClass} ${proposedClass}" type="button" data-title="${encodedTitle}" style="--card-lamp-color:${escapeHtml(lampColor)}">
