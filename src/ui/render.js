@@ -4020,7 +4020,12 @@ export function createRenderer(store) {
         appliedFilterSignature = snapshotFilterSignature;
       }
 
+      const summaryBandScrollTop = nodes.summary?.querySelector(".summary-band-chart")?.scrollTop ?? 0;
       renderSummary(nodes.summary, snapshot.summary, snapshot.filters);
+      const summaryBandChart = nodes.summary?.querySelector(".summary-band-chart");
+      if (summaryBandChart) {
+        summaryBandChart.scrollTop = summaryBandScrollTop;
+      }
       nodes.summaryContent?.classList.toggle("is-collapsed", !summaryOpen);
       nodes.summaryPanel?.classList.toggle("is-collapsed", !summaryOpen);
       latestFilterBounds = deriveFilterBounds(snapshot.songStates);
