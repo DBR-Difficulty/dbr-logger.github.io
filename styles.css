@@ -1597,7 +1597,6 @@ html[data-theme="dark"] .summary-toggle-button:hover {
   font-weight: 700;
   padding: 0;
   text-decoration: underline;
-  text-underline-offset: 0;
 }
 
 .entry-input-mode-link:hover {
@@ -1828,7 +1827,7 @@ html[data-theme="dark"] .summary-toggle-button:hover {
   font-weight: 700;
   text-decoration: underline;
   padding: 0;
-  vertical-align: bottom;
+  vertical-align: baseline;
 }
 
 .floating-filter-single-wrap {
