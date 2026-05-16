@@ -1597,7 +1597,7 @@ html[data-theme="dark"] .summary-toggle-button:hover {
   font-weight: 700;
   padding: 0;
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 0;
 }
 
 .entry-input-mode-link:hover {
