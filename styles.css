@@ -829,6 +829,15 @@ html[data-theme="dark"] .summary-filters-toggle:hover {
   display: none;
 }
 
+.pagination-wrap {
+  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
 .pagination-controls {
   align-items: center;
   display: flex;
@@ -863,7 +872,41 @@ html[data-theme="dark"] .summary-filters-toggle:hover {
 
 .pagination-label {
   color: var(--muted);
+  font-family: var(--font-song);
   font-size: 0.92rem;
+  line-height: 1.55;
+  max-width: 100%;
+  min-width: 0;
+  text-align: center;
+}
+
+.pagination-range-item {
+  align-items: baseline;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.pagination-range-title,
+.pagination-range-primary {
+  display: inline-block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pagination-range-title {
+  max-width: min(56ch, 66vw);
+}
+
+.pagination-range-primary {
+  flex: 0 1 auto;
+  max-width: min(24ch, 28vw);
+}
+
+.pagination-range-separator {
+  line-height: 1.2;
 }
 
 .summary-panel {
@@ -1703,7 +1746,20 @@ html[data-theme="dark"] .summary-filters-toggle:hover {
   pointer-events: none;
 }
 
-.floating-filter-actions:has(.floating-filter-clear) {
+.floating-filter-actions.has-prev-date.has-next-date {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.floating-filter-actions.has-prev-date:not(.has-next-date) {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.floating-filter-actions.has-next-date:not(.has-prev-date) {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.floating-filter-actions:has(.floating-filter-clear),
+.floating-filter-actions:has(.floating-filter-date-nav) {
   gap: 10px;
 }
 
@@ -1718,6 +1774,11 @@ html[data-theme="dark"] .summary-filters-toggle:hover {
   padding-inline: 18px;
   pointer-events: auto;
   touch-action: none;
+}
+
+.floating-filter-actions.has-prev-date .floating-filter-toggle,
+.floating-filter-actions.has-next-date .floating-filter-toggle {
+  justify-self: stretch;
 }
 
 /* フローティング要素をhoverで不透明化する機能 */
@@ -1736,6 +1797,12 @@ html[data-theme="dark"] .summary-filters-toggle:hover {
 .floating-filter-clear {
   font-size: 0.84rem;
   min-height: 52px;
+}
+
+.floating-filter-date-nav {
+  font-size: 0.84rem;
+  min-height: 52px;
+  padding-inline: 18px;
 }
 
 .floating-filter-panel {
@@ -2799,12 +2866,19 @@ html[data-theme="dark"] .proposal-success-body a {
     top: 14px;
   }
 
-  .floating-filter-actions:has(.floating-filter-clear) {
+  .floating-filter-actions:has(.floating-filter-clear),
+  .floating-filter-actions:has(.floating-filter-date-nav) {
     gap: 8px;
   }
 
   .floating-filter-toggle,
   .floating-filter-clear {
+    font-size: 0.8rem;
+    min-height: 46px;
+    padding-inline: 15px;
+  }
+
+  .floating-filter-date-nav {
     font-size: 0.8rem;
     min-height: 46px;
     padding-inline: 15px;
@@ -2977,6 +3051,14 @@ html[data-theme="dark"] .proposal-success-body a {
     gap: 5px;
   }
 
+  .pagination-range-title {
+    max-width: 62vw;
+  }
+
+  .pagination-range-primary {
+    max-width: 30vw;
+  }
+
   .pagination-controls .button {
     height: 40px;
     padding-bottom: 9px;
@@ -2993,6 +3075,7 @@ html[data-theme="dark"] .proposal-success-body a {
     padding-right: 0;
     width: 40px;
   }
+
 }
 
 .manual-page {

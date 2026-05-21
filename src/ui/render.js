@@ -34,7 +34,7 @@ const getSummaryBandLampColor = (lamp) => getLampColor(lamp);
 const getCardLampColor = (lamp) => lamp === "NO PLAY" ? "transparent" : getLampColor(lamp);
 const getCardBandColor = (song, summaryDisplayMode = "clear") => (
   summaryDisplayMode === "score"
-    ? (song?.currentScore === null || song?.currentScore === undefined ? "transparent" : getScoreRankColor(song?.scoreFilterRank ?? "F"))
+    ? (song?.currentScore === null || song?.currentScore === undefined ? "transparent" : getScoreRankColor(song?.cardScoreFilterRank ?? song?.scoreFilterRank ?? "F"))
     : getCardLampColor(song?.bestLamp)
 );
 const getScoreRankSummaryLabel = (rank) => rank === "F" ? "F/※" : rank;
@@ -391,6 +391,11 @@ function formatBpmTitleSuffix(song) {
   return `BPM${bpm}`;
 }
 
+function getChartSuffix(title) {
+  const match = String(title ?? "").match(/^(.*)\(([BNHAL])\)$/);
+  return match ? match[2] : "";
+}
+
 function formatSortTitleSuffix(song, sortMode, axisMode = "") {
   const suffixes = [];
 
@@ -411,6 +416,85 @@ function formatSortTitleSuffix(song, sortMode, axisMode = "") {
   }
 
   return suffixes.filter(Boolean).map((suffix) => `(${suffix})`).join(" ");
+}
+
+function formatCatalogPagePrimaryValue(song, sortMode) {
+  if (!song || sortMode === "title" || sortMode === "random" || sortMode === "chartDifficulty") {
+    return "";
+  }
+
+  if (sortMode === "version") {
+    return formatAxisValue("version", song.version);
+  }
+
+  if (sortMode === "splv") {
+    return song.splvValue === null || song.splvValue === undefined ? "-" : formatAxisValue("splv", song.splvValue);
+  }
+
+  if (sortMode === "level") {
+    return song.levelValue === null || song.levelValue === undefined ? "-" : formatAxisValue("level", song.levelValue);
+  }
+
+  if (sortMode === "katate") {
+    return song.katateValue === null || song.katateValue === undefined ? "-" : formatAxisValue("katate", song.katateValue);
+  }
+
+  if (sortMode === "bpm") {
+    return formatBpmTitleSuffix(song) || "-";
+  }
+
+  if (sortMode === "recommend") {
+    return formatRecommendDisplay(song.recommend);
+  }
+
+  if (sortMode === "clear") {
+    return song.bestLamp || "NO PLAY";
+  }
+
+  if (sortMode === "bestBp") {
+    return `BP ${formatBp(song.bestBp)}`;
+  }
+
+  if (sortMode === "latestBp") {
+    return `BP ${formatBp(song.currentBp)}`;
+  }
+
+  if (sortMode === "bestScore") {
+    return formatScoreRankDisplay(song.bestScoreLabel);
+  }
+
+  if (sortMode === "latestScore") {
+    return formatScoreRankDisplay(song.currentScoreLabel);
+  }
+
+  if (sortMode === "latest") {
+    return song.latestDate ? formatIsoDate(song.latestDate) : "履歴なし";
+  }
+
+  if (sortMode === "entryCount") {
+    return `${song.entryCount ?? 0}件`;
+  }
+
+  if (sortMode === "memo") {
+    return String(song.note ?? "").replace(/\s+/g, " ").trim() || "-";
+  }
+
+  return "";
+}
+
+function renderCatalogPageItemLabel(song, sortMode) {
+  if (!song) {
+    return '<span class="pagination-range-title">-</span>';
+  }
+
+  const primaryValue = formatCatalogPagePrimaryValue(song, sortMode);
+  const primaryMarkup = primaryValue
+    ? `<span class="pagination-range-primary">(${escapeHtml(primaryValue)})</span>`
+    : "";
+  return `
+    <span class="pagination-range-title">${escapeHtml(song.title)}</span>
+    ${primaryMarkup}
+  `;
 }
 
 function formatRecommendDisplay(recommend) {
@@ -461,8 +545,16 @@ function getPrimaryResultBadge(song) {
   return [lampBadge, scoreBadge].filter(Boolean).join("");
 }
 
-function getSupplementalBadges(song, sortMode = "") {
-  const badges = [];
+function moveFirstItemToFront(items, target) {
+  const index = items.indexOf(target);
+  if (index <= 0) {
+    return items;
+  }
+
+  return [target, ...items.slice(0, index), ...items.slice(index + 1)];
+}
+
+function getSupplementalBadges(song, sortMode = "", summaryDisplayMode = "clear") {
   const bpBadge = song?.displayMode !== "score"
     ? badge(`BP ${formatBp(song.bestBp)}/${formatBp(song.currentBp)}`, "pill-neutral")
     : "";
@@ -477,17 +569,19 @@ function getSupplementalBadges(song, sortMode = "") {
   const historyBadge = song.entryCount > 0
     ? badge(`履歴 ${song.entryCount} 件`, "pill-neutral")
     : "";
+  const defaultBadges = summaryDisplayMode === "score"
+    ? [scoreBadge, bpBadge, dateBadge, historyBadge]
+    : [bpBadge, scoreBadge, dateBadge, historyBadge];
+  let badges = defaultBadges;
 
   if (sortMode === "bestBp" || sortMode === "latestBp") {
-    badges.push(bpBadge, scoreBadge, dateBadge, historyBadge);
+    badges = moveFirstItemToFront(defaultBadges, bpBadge);
   } else if (sortMode === "bestScore" || sortMode === "latestScore") {
-    badges.push(scoreBadge, bpBadge, dateBadge, historyBadge);
+    badges = moveFirstItemToFront(defaultBadges, scoreBadge);
   } else if (sortMode === "latest") {
-    badges.push(song.latestDate ? dateBadge : "", bpBadge, scoreBadge, historyBadge, song.latestDate ? "" : dateBadge);
+    badges = moveFirstItemToFront(defaultBadges, dateBadge);
   } else if (sortMode === "entryCount") {
-    badges.push(historyBadge || dateBadge, bpBadge, scoreBadge, historyBadge ? dateBadge : "");
-  } else {
-    badges.push(bpBadge, scoreBadge, dateBadge, historyBadge);
+    badges = moveFirstItemToFront(defaultBadges, historyBadge || dateBadge);
   }
 
   return badges.filter(Boolean).join("");
@@ -524,7 +618,7 @@ function getBpOrScoreMetaText(song) {
   return getBpOrScoreMetaTextBySort(song);
 }
 
-function getBpOrScoreMetaTextBySort(song, sortMode = "") {
+function getBpOrScoreMetaTextBySort(song, sortMode = "", summaryDisplayMode = "clear") {
   const bpText = song?.displayMode !== "score"
     ? `BP ${formatBp(song.bestBp)}/${formatBp(song.currentBp)}`
     : "";
@@ -537,15 +631,18 @@ function getBpOrScoreMetaTextBySort(song, sortMode = "") {
     : "";
   const dateText = song.latestDate ? formatIsoDate(song.latestDate).slice(5) : "履歴なし";
   const historyText = song.entryCount > 0 ? `履歴 ${song.entryCount} 件` : "";
+  const defaultValues = summaryDisplayMode === "score"
+    ? [scoreText, bpText, dateText, historyText]
+    : [bpText, scoreText, dateText, historyText];
   const values = sortMode === "bestBp" || sortMode === "latestBp"
-    ? [bpText, scoreText, dateText, historyText]
+    ? moveFirstItemToFront(defaultValues, bpText)
     : sortMode === "bestScore" || sortMode === "latestScore"
-          ? [scoreText, bpText, dateText, historyText]
-        : sortMode === "latest"
-          ? [song.latestDate ? dateText : "", bpText, scoreText, historyText, song.latestDate ? "" : dateText]
-          : sortMode === "entryCount"
-            ? [historyText || dateText, bpText, scoreText, historyText ? dateText : ""]
-          : [bpText, scoreText, dateText, historyText];
+      ? moveFirstItemToFront(defaultValues, scoreText)
+      : sortMode === "latest"
+        ? moveFirstItemToFront(defaultValues, dateText)
+        : sortMode === "entryCount"
+          ? moveFirstItemToFront(defaultValues, historyText || dateText)
+          : defaultValues;
 
   return values.filter(Boolean).join(", ");
 }
@@ -1002,6 +1099,17 @@ function shouldShowFloatingClear(filters) {
   return filters.axisValue !== "";
 }
 
+function getHistoryDateNeighbor(historyDates, isoDate, delta) {
+  if (!Array.isArray(historyDates) || !historyDates.length) {
+    return "";
+  }
+
+  const base = String(isoDate || todayIso());
+  return delta < 0
+    ? [...historyDates].reverse().find((date) => date < base) ?? ""
+    : historyDates.find((date) => date > base) ?? "";
+}
+
 function summarizeAxisFilter(filters, bounds) {
   if (isTextAxisMode(filters.axisMode)) {
     return filters.titleQuery.trim()
@@ -1010,7 +1118,13 @@ function summarizeAxisFilter(filters, bounds) {
   }
 
   if (isDateAxisMode(filters.axisMode)) {
-    return `${getAxisLabel(filters.axisMode)} ${formatDateRangeValue(filters)}`;
+    return formatDateRangeValue(filters);
+  }
+
+  if (filters.axisMode === "version") {
+    return isAxisRangeMode(filters)
+      ? formatAxisRangeValue(filters.axisMode, getNormalizedAxisRange(filters, getAxisRangeValues(bounds, filters.axisMode)))
+      : formatAxisValue(filters.axisMode, filters.axisValue);
   }
 
   if (isAxisRangeMode(filters)) {
@@ -1087,7 +1201,7 @@ function renderSummaryChartDifficultyFilter(filters) {
 
 function renderFloatingToggleLabel(filters, bounds) {
   if (isDateAxisMode(filters.axisMode)) {
-    return `絞り込み: ${escapeHtml(getAxisLabel(filters.axisMode))} ${escapeHtml(formatDateRangeValue(filters))}`;
+    return `絞り込み: ${escapeHtml(formatDateRangeValue(filters))}`;
   }
 
   return `絞り込み: ${escapeHtml(summarizeAxisFilter(filters, bounds))}`;
@@ -1248,7 +1362,7 @@ function renderDifficultyFilters(container, filters) {
     songData: filters.axisMode === "date",
     includeUnrated: filters.axisMode === "date" || isTextAxisMode(filters.axisMode),
     recommend: filters.axisMode === "date" || isTextAxisMode(filters.axisMode),
-    chartDifficulty: filters.axisMode === "date" || isTextAxisMode(filters.axisMode),
+    chartDifficulty: filters.axisMode === "date",
   };
   const selectedSongDataFilter = getSongDataFilterValue(filters);
   const displayModeOptions = DISPLAY_MODE_OPTIONS.map((option) => `
@@ -1257,15 +1371,6 @@ function renderDifficultyFilters(container, filters) {
   const songDataOptions = SONG_DATA_FILTER_OPTIONS.map((option) => `
     <option value="${escapeHtml(option.value)}" ${selectedSongDataFilter === option.value ? "selected" : ""}>${escapeHtml(option.label)}</option>
   `).join("");
-  const recommendMarkup = RECOMMEND_OPTIONS.map((option) => {
-    const checked = filters.recommend.includes(option.value) ? "checked" : "";
-    return `
-      <label class="recommend-chip ${fixedFilterDisabled.recommend ? "is-disabled" : ""}">
-        <input type="checkbox" data-filter="recommend" value="${escapeHtml(option.value)}" ${checked} ${fixedFilterDisabled.recommend ? "disabled" : ""} />
-        <span>${escapeHtml(option.label)}</span>
-      </label>
-    `;
-  }).join("");
   const chartDifficultyMarkup = CHART_DIFFICULTY_OPTIONS.map((option) => {
     const selectedChartDifficulties = filters.chartDifficulties ?? CHART_DIFFICULTY_OPTIONS;
     const checked = selectedChartDifficulties.includes(option) ? "checked" : "";
@@ -1309,12 +1414,6 @@ function renderDifficultyFilters(container, filters) {
       </div>
     </div>
     <div class="filters-footer">
-      <div class="recommend-group ${fixedFilterDisabled.recommend ? "is-disabled" : ""}">
-        <span class="recommend-label">おすすめ度</span>
-        <div class="recommend-options">
-          ${recommendMarkup}
-        </div>
-      </div>
       <div class="recommend-group chart-difficulty-group ${fixedFilterDisabled.chartDifficulty ? "is-disabled" : ""}">
         <span class="recommend-label">譜面難易度</span>
         <div class="recommend-options">
@@ -1466,15 +1565,36 @@ function renderFloatingAxisFilter(container, filters, bounds, isOpen, previewSta
       </div>
     `;
 
+  const currentDateSingle = filters.dateSingle || todayIso();
+  const previousDate = isDateAxisMode(filters.axisMode) && filters.dateSelectionMode === "single"
+    ? getHistoryDateNeighbor(bounds?.historyDates ?? [], currentDateSingle, -1)
+    : "";
+  const nextDate = isDateAxisMode(filters.axisMode) && filters.dateSelectionMode === "single"
+    ? getHistoryDateNeighbor(bounds?.historyDates ?? [], currentDateSingle, 1)
+    : "";
+  const previousDateButtonMarkup = previousDate
+    ? '<button class="floating-filter-date-nav button button-tertiary" type="button" data-date-single-shift="-1">前日</button>'
+    : "";
+  const nextDateButtonMarkup = nextDate
+    ? '<button class="floating-filter-date-nav button button-tertiary" type="button" data-date-single-shift="1">翌日</button>'
+    : "";
   const clearButtonMarkup = shouldShowFloatingClear(filters)
     ? '<button class="floating-filter-clear button button-tertiary" type="button" data-floating-clear>解除</button>'
     : "";
+  const actionClasses = [
+    "floating-filter-actions",
+    previousDate ? "has-prev-date" : "",
+    nextDate ? "has-next-date" : "",
+    clearButtonMarkup ? "has-clear" : "",
+  ].filter(Boolean).join(" ");
 
   container.innerHTML = `
-    <div class="floating-filter-actions">
+    <div class="${actionClasses}">
+      ${previousDateButtonMarkup}
       <button class="floating-filter-toggle button button-primary" type="button" data-floating-toggle>
         ${renderFloatingToggleLabel(filters, bounds)}
       </button>
+      ${nextDateButtonMarkup}
       ${clearButtonMarkup}
     </div>
     <section class="floating-filter-panel ${isOpen ? "is-open" : ""}" aria-hidden="${isOpen ? "false" : "true"}">
@@ -1533,7 +1653,7 @@ function renderSelectedSong(selectedSongContainer, selectedSong, songs, options 
     <p class="selected-song-note">${escapeHtml(formatSongMemoDisplay(selectedSong))}</p>
     <div class="selected-song-meta">
       <div class="selected-song-meta-row">
-        ${getSupplementalBadges(selectedSong, options.sortMode)}
+        ${getSupplementalBadges(selectedSong, options.sortMode, options.summaryDisplayMode)}
       </div>
     </div>
   `;
@@ -1566,7 +1686,7 @@ function renderCatalog(catalogContainer, songs, selectedTitle, options = {}) {
       : "";
 
     if (options.viewMode === "list") {
-      const listMetaCore = getBpOrScoreMetaTextBySort(song, options.sortMode);
+      const listMetaCore = getBpOrScoreMetaTextBySort(song, options.sortMode, options.summaryDisplayMode);
       const splvMeta = formatSplvLabel(song);
       const listMetaText = [splvMeta, listMetaCore].filter(Boolean).join(", ");
 
@@ -1600,7 +1720,7 @@ function renderCatalog(catalogContainer, songs, selectedTitle, options = {}) {
         <p class="song-card-note">${escapeHtml(formatSongMemoDisplay(song))}</p>
         <div class="song-card-meta">
           <div class="song-card-meta-row">
-            ${getSupplementalBadges(song, options.sortMode)}
+            ${getSupplementalBadges(song, options.sortMode, options.summaryDisplayMode)}
           </div>
         </div>
       </button>
@@ -1661,14 +1781,25 @@ function renderPagination(container, pagination, options = {}) {
   const sortDirectionButton = options.showSortDirectionToggle && options.sortMode !== "chartDifficulty" && options.sortMode !== "recommend"
     ? `<button class="button button-tertiary catalog-sort-control-button" type="button" data-sort-direction-toggle aria-label="${options.sortMode === "random" ? "ランダム順を変更" : "並び順の昇順降順を切り替え"}">${options.sortMode === "random" ? "？" : (options.sortDirection === "desc" ? "▼" : "▲")}</button>`
     : "";
+  const currentPageRange = (pagination.pageRanges ?? []).find((range) => range.page === pagination.currentPage)
+    ?? pagination.pageRanges?.[0]
+    ?? null;
+  const firstPageLabel = renderCatalogPageItemLabel(currentPageRange?.first, options.sortMode);
+  const lastPageLabel = renderCatalogPageItemLabel(currentPageRange?.last, options.sortMode);
 
   container.innerHTML = `
-    <div class="pagination-controls">
-      ${sortHeadButton}
-      ${sortDirectionButton}
-      <button class="button button-tertiary" type="button" data-page="prev" ${prevDisabled}>前へ</button>
-      <span class="pagination-label">${pagination.startIndex}-${pagination.endIndex} / ${pagination.totalItems}</span>
-      <button class="button button-tertiary" type="button" data-page="next" ${nextDisabled}>次へ</button>
+    <div class="pagination-wrap">
+      <div class="pagination-label">
+        <div class="pagination-range-item">${firstPageLabel}</div>
+        <div class="pagination-range-separator">～</div>
+        <div class="pagination-range-item">${lastPageLabel}</div>
+      </div>
+      <div class="pagination-controls">
+        ${sortHeadButton}
+        ${sortDirectionButton}
+        <button class="button button-tertiary" type="button" data-page="prev" ${prevDisabled}>前へ</button>
+        <button class="button button-tertiary" type="button" data-page="next" ${nextDisabled}>次へ</button>
+      </div>
     </div>
   `;
 }
@@ -1921,7 +2052,7 @@ export function createRenderer(store) {
     renderFloatingAxisFilter(
       nodes.floatingAxisFilter,
       filterDraft ?? snapshot.filters,
-      latestFilterBounds,
+      { ...latestFilterBounds, historyDates: latestHistoryDates },
       floatingFilterOpen,
       {
         mode: floatingAxisPreviewMode,
@@ -1947,6 +2078,16 @@ export function createRenderer(store) {
 
   function toggleFloatingFilter() {
     floatingFilterOpen = !floatingFilterOpen;
+    renderFloatingFilterShell();
+    syncQueryScrollLockState();
+  }
+
+  function openFloatingFilterIfClosed() {
+    if (floatingFilterOpen) {
+      return;
+    }
+
+    floatingFilterOpen = true;
     renderFloatingFilterShell();
     syncQueryScrollLockState();
   }
@@ -2036,7 +2177,7 @@ export function createRenderer(store) {
   function previewFloatingAxisSliderToIndex(axisMode, targetIndex) {
     const activeFilters = filterDraft ?? store.getSnapshot().filters;
 
-    if (!floatingFilterOpen || isTextAxisMode(axisMode) || isDateAxisMode(axisMode) || isAxisRangeMode({ ...activeFilters, axisMode })) {
+    if (isTextAxisMode(axisMode) || isDateAxisMode(axisMode) || isAxisRangeMode({ ...activeFilters, axisMode })) {
       return false;
     }
 
@@ -2126,7 +2267,7 @@ export function createRenderer(store) {
 
   function previewFloatingAxisRangeBy(delta, handle) {
     const activeFilters = filterDraft ?? store.getSnapshot().filters;
-    if (!floatingFilterOpen || !isAxisRangeMode(activeFilters)) {
+    if (!isAxisRangeMode(activeFilters)) {
       return false;
     }
 
@@ -2647,10 +2788,7 @@ export function createRenderer(store) {
   function readFiltersFromPanel() {
     const panel = nodes.summaryFiltersPanel;
     const currentFilters = filterDraft ?? store.getSnapshot().filters;
-    const recommendInputs = Array.from(panel.querySelectorAll('input[data-filter="recommend"]'));
-    const selectedRecommend = recommendInputs.some((input) => input.disabled)
-      ? [...(currentFilters.recommend ?? RECOMMEND_OPTIONS.map((option) => option.value))]
-      : recommendInputs.filter((input) => input.checked).map((input) => input.value);
+    const selectedRecommend = RECOMMEND_OPTIONS.map((option) => option.value);
     const chartDifficultyInputs = Array.from(panel.querySelectorAll('input[data-filter="chartDifficulty"]'));
     const selectedChartDifficulties = chartDifficultyInputs.some((input) => input.disabled)
       ? [...(currentFilters.chartDifficulties ?? CHART_DIFFICULTY_OPTIONS)]
@@ -2712,7 +2850,7 @@ export function createRenderer(store) {
   function previewFloatingAxisSliderBy(delta) {
     const activeFilters = filterDraft ?? store.getSnapshot().filters;
 
-    if (!floatingFilterOpen || isTextAxisMode(activeFilters.axisMode) || isDateAxisMode(activeFilters.axisMode)) {
+    if (isTextAxisMode(activeFilters.axisMode) || isDateAxisMode(activeFilters.axisMode)) {
       return false;
     }
 
@@ -2951,6 +3089,10 @@ export function createRenderer(store) {
     return latestHistoryDates[index] ?? base;
   }
 
+  function getShiftedHistoryDateOrEmpty(isoDate, delta) {
+    return getHistoryDateNeighbor(latestHistoryDates, isoDate, delta);
+  }
+
   function updateFloatingDateDisplay(filters) {
     const valueNode = nodes.floatingAxisFilter.querySelector(".floating-filter-date-summary span");
     if (valueNode) {
@@ -2975,7 +3117,7 @@ export function createRenderer(store) {
 
   function previewFloatingDateBy(delta, handle) {
     const activeFilters = filterDraft ?? store.getSnapshot().filters;
-    if (!floatingFilterOpen || !isDateAxisMode(activeFilters.axisMode)) {
+    if (!isDateAxisMode(activeFilters.axisMode)) {
       return false;
     }
 
@@ -3036,6 +3178,28 @@ export function createRenderer(store) {
       dateSingle: nextFilters.dateSingle || todayIso(),
       dateStart: nextFilters.dateStart || "",
       dateEnd: nextFilters.dateEnd || "",
+    }, { scrollToCatalog: false });
+    return true;
+  }
+
+  function moveSingleDateFilterBy(delta) {
+    const { filters } = store.getSnapshot();
+    if (!isDateAxisMode(filters.axisMode) || filters.dateSelectionMode !== "single") {
+      return false;
+    }
+
+    const nextDate = getShiftedHistoryDateOrEmpty(filters.dateSingle || todayIso(), delta);
+    if (!nextDate) {
+      return false;
+    }
+
+    applyFiltersPreservingOverviewPosition({
+      axisMode: "date",
+      axisValue: "",
+      dateSelectionMode: "single",
+      dateSingle: nextDate,
+      dateStart: filters.dateStart,
+      dateEnd: filters.dateEnd,
     }, { scrollToCatalog: false });
     return true;
   }
@@ -3199,6 +3363,14 @@ export function createRenderer(store) {
       event.preventDefault();
       event.stopPropagation();
       toggleDateSelectionMode();
+      return;
+    }
+
+    const dateShiftButton = target.closest("[data-date-single-shift]");
+    if (dateShiftButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      moveSingleDateFilterBy(Number(dateShiftButton.dataset.dateSingleShift));
       return;
     }
 
@@ -4203,12 +4375,14 @@ export function createRenderer(store) {
 
       const dateMoved = previewFloatingDateBy(shortcutKey === "a" ? -1 : 1, event.shiftKey ? "end" : "start");
       if (dateMoved) {
+        openFloatingFilterIfClosed();
         event.preventDefault();
         return;
       }
 
       const rangeMoved = previewFloatingAxisRangeBy(shortcutKey === "a" ? -1 : 1, event.shiftKey ? "end" : "start");
       if (rangeMoved) {
+        openFloatingFilterIfClosed();
         event.preventDefault();
         return;
       }
@@ -4218,6 +4392,7 @@ export function createRenderer(store) {
         return;
       }
 
+      openFloatingFilterIfClosed();
       event.preventDefault();
       return;
     }
@@ -4678,7 +4853,9 @@ export function createRenderer(store) {
         chartDifficultySortHead: snapshot.effectiveChartDifficultySortHead ?? snapshot.chartDifficultySortHead,
         recommendSortHead: snapshot.effectiveRecommendSortHead ?? snapshot.recommendSortHead,
       });
-      renderPagination(nodes.catalogPaginationBottom, snapshot.pagination);
+      renderPagination(nodes.catalogPaginationBottom, snapshot.pagination, {
+        sortMode: snapshot.sortMode,
+      });
       renderSelectedSong(nodes.selectedSong, snapshot.selectedSong, snapshot.pagedSongs, {
         sortMode: snapshot.sortMode,
         axisMode: snapshot.filters.axisMode,

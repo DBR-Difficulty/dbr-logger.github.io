@@ -1090,8 +1090,8 @@ function applyDateScopedDisplayValues(songState, filters) {
   };
 }
 
-function shouldUseRecordScopedCatalog(filters, sortMode) {
-  return filters.axisMode === "date" && sortMode === "latest";
+function shouldUseRecordScopedCatalog(filters) {
+  return filters.axisMode === "date";
 }
 
 function createRecordScopedCatalogItem(songState, record) {
@@ -1117,10 +1117,23 @@ function createRecordScopedCatalogItem(songState, record) {
     bestScoreLabel: bestScoreRank.display,
     scoreRank: bestScoreRank.label,
     scoreFilterRank: bestScoreRank.label === "MAX" ? "AAA" : bestScoreRank.label,
+    cardScoreFilterRank: recordScoreRank.label === "MAX" ? "AAA" : recordScoreRank.label,
     currentScore: Number.isFinite(record.score) ? record.score : null,
     currentScoreRate: recordScoreRank.rate,
     currentScoreLabel: recordScoreRank.display,
   };
+}
+
+function matchesRecordScopedResultFilter(entry, filters) {
+  const activeSummaryFilterMode = getEffectiveSummaryDisplayMode(filters);
+
+  if (activeSummaryFilterMode === "score") {
+    const scoreRanks = filters.scoreRanks ?? SCORE_RANK_OPTIONS;
+    const scoreFilterRank = entry.cardScoreFilterRank === "※" ? "F" : entry.cardScoreFilterRank;
+    return scoreRanks.includes(scoreFilterRank);
+  }
+
+  return filters.lamps.includes(entry.bestLamp);
 }
 
 function createDifficultyCatalogEntries(difficultyTable) {
@@ -1386,6 +1399,9 @@ function getDateSummarySingleTargetDates(records, visibleTitles, dateSingle) {
 
 function buildDateSummary(records, baseSongs, countSongs, filters) {
   const visibleTitles = new Set(baseSongs.map((song) => song.title));
+  const countTitles = new Set(countSongs.map((song) => song.title));
+  const baseSongByTitle = new Map(baseSongs.map((song) => [song.title, song]));
+  const countSongByTitle = new Map(countSongs.map((song) => [song.title, song]));
   const isScoreMode = filters.displayMode === "score";
   const countsFactory = isScoreMode ? createScoreRankCounts : createLampCounts;
   const { start, end, sliceMode, limit } = getDateSummaryRange(filters);
@@ -1393,6 +1409,14 @@ function buildDateSummary(records, baseSongs, countSongs, filters) {
     ? getDateSummarySingleTargetDates(records, visibleTitles, filters.dateSingle)
     : null;
   const bandMap = new Map();
+  const getRecordSummaryKey = (record, song) => {
+    if (isScoreMode) {
+      const scoreRank = getScoreRankInfo(record.score, song).label;
+      return normalizeScoreRankForSummary(scoreRank === "MAX" ? "AAA" : scoreRank);
+    }
+
+    return LAMP_OPTIONS.includes(record.lamp) ? record.lamp : "NO PLAY";
+  };
 
   const targetDates = new Set();
   records.forEach((record) => {
@@ -1418,20 +1442,13 @@ function buildDateSummary(records, baseSongs, countSongs, filters) {
       baseLampCounts: countsFactory(),
     };
 
-    baseSongs.forEach((song) => {
-      if (!song.history.some((record) => getRecordPlayDate(record) === playDate)) {
+    records.forEach((record) => {
+      if (record.title === undefined || !visibleTitles.has(record.title) || getRecordPlayDate(record) !== playDate) {
         return;
       }
 
-      const dateScopedSong = applyDateScopedDisplayValues(song, {
-        ...filters,
-        axisMode: "date",
-        dateSelectionMode: "single",
-        dateSingle: playDate,
-      });
-      const countKey = isScoreMode
-        ? normalizeScoreRankForSummary(dateScopedSong.scoreFilterRank)
-        : dateScopedSong.bestLamp;
+      const song = baseSongByTitle.get(record.title);
+      const countKey = getRecordSummaryKey(record, song);
       if (isScoreMode && !SCORE_RANK_SUMMARY_OPTIONS.includes(countKey)) {
         return;
       }
@@ -1461,8 +1478,23 @@ function buildDateSummary(records, baseSongs, countSongs, filters) {
   }
 
   const lampCounts = countsFactory();
-  countSongs.forEach((song) => {
-    const summaryKey = isScoreMode ? normalizeScoreRankForSummary(song.scoreFilterRank) : song.bestLamp;
+  records.forEach((record) => {
+    if (!countTitles.has(record.title)) {
+      return;
+    }
+    const playDate = getRecordPlayDate(record);
+    if (filters.dateSelectionMode === "single") {
+      const dateSingle = normalizeDateValue(filters.dateSingle) || todayIso();
+      if (playDate !== dateSingle) {
+        return;
+      }
+    } else {
+      if (start && playDate < start) return;
+      if (end && playDate > end) return;
+    }
+
+    const song = countSongByTitle.get(record.title);
+    const summaryKey = getRecordSummaryKey(record, song);
     if (isScoreMode && !SCORE_RANK_SUMMARY_OPTIONS.includes(summaryKey)) {
       return;
     }
@@ -1473,9 +1505,9 @@ function buildDateSummary(records, baseSongs, countSongs, filters) {
   return {
     axisMode: "date",
     bandTotalSongs: bands.reduce((total, band) => total + band.total, 0),
-    totalSongs: countSongs.length,
-    totalLabel: "総曲数",
-    totalUnit: "曲",
+    totalSongs: Object.values(lampCounts).reduce((total, count) => total + count, 0),
+    totalLabel: "総記録数",
+    totalUnit: "件",
     emptyMessage: "該当する履歴がありません。",
     lampCounts,
     displayMode: isScoreMode ? "score" : "clear",
@@ -2036,7 +2068,7 @@ export function createStore() {
   }
 
   function createRecordScopedPreservePool(visibleSongs, songStates) {
-    if (!shouldUseRecordScopedCatalog(state.filters, state.sortMode)) {
+    if (!shouldUseRecordScopedCatalog(state.filters)) {
       return songStates;
     }
 
@@ -2230,10 +2262,6 @@ export function createStore() {
       }
     }
 
-    if (filters.axisMode !== "date" && !filters.recommend.includes(entry.recommend)) {
-      return false;
-    }
-
     const activeChartDifficulties = filters.axisMode === "version"
       ? (filters.chartDifficulties ?? CHART_DIFFICULTY_OPTIONS)
         .filter((option) => (filters.versionChartDifficulties ?? CHART_DIFFICULTY_OPTIONS).includes(option))
@@ -2273,6 +2301,11 @@ export function createStore() {
   }
 
   function matchesTextAxisFixedFilters(entry, filters) {
+    const chartDifficulties = filters.chartDifficulties ?? CHART_DIFFICULTY_OPTIONS;
+    if (!chartDifficulties.includes(splitTitleAndSuffix(entry.title).suffix)) {
+      return false;
+    }
+
     if (filters.inf === "yes" && !entry.infAvailable) {
       return false;
     }
@@ -3215,7 +3248,14 @@ export function createStore() {
       state.recommendSortHead,
     ));
 
-    let filteredVisibleSongs = songStates.filter((entry) => matchesFiltersFor(entry, state.filters));
+    const catalogBaseFilters = state.filters.axisMode === "date"
+      ? {
+          ...state.filters,
+          lamps: [...LAMP_OPTIONS],
+          scoreRanks: [...SCORE_RANK_OPTIONS],
+        }
+      : state.filters;
+    let filteredVisibleSongs = songStates.filter((entry) => matchesFiltersFor(entry, catalogBaseFilters));
 
     if (state.filters.axisMode === "title" && state.filters.titleQuery.trim()) {
       const songOrder = new Map(songStates.map((song, index) => [song.title, index]));
@@ -3230,10 +3270,11 @@ export function createStore() {
       });
     }
 
-    if (shouldUseRecordScopedCatalog(state.filters, state.sortMode)) {
+    if (shouldUseRecordScopedCatalog(state.filters)) {
       filteredVisibleSongs = filteredVisibleSongs
         .flatMap((entry) => filterHistoryByDateRange(entry.history, state.filters)
           .map((record) => createRecordScopedCatalogItem(entry, record)))
+        .filter((entry) => matchesRecordScopedResultFilter(entry, state.filters))
         .sort((a, b) => compareCatalogSongs(
           a,
           b,
@@ -3327,6 +3368,11 @@ export function createStore() {
           axisMode: "splv",
           axisValue: "",
           axisRangeModeByAxis: normalizeAxisRangeModeByAxis(AXIS_RANGE_MODE_DISABLED),
+          inf: "all",
+          acdelete: "all",
+          includeUnrated: "all",
+          chartDifficulties: [...CHART_DIFFICULTY_OPTIONS],
+          versionChartDifficulties: [...CHART_DIFFICULTY_OPTIONS],
         }
       : null;
     const dateSummaryBaseSongs = dateSummaryBaseFilters
@@ -3341,6 +3387,15 @@ export function createStore() {
     const currentPage = Math.max(1, Math.min(state.currentPage, totalPages));
     const pageStart = (currentPage - 1) * PAGE_SIZE;
     const pagedSongs = visibleSongs.slice(pageStart, pageStart + PAGE_SIZE);
+    const pageRanges = Array.from({ length: totalPages }, (_, index) => {
+      const rangeStart = index * PAGE_SIZE;
+      const pageSongs = visibleSongs.slice(rangeStart, rangeStart + PAGE_SIZE);
+      return {
+        page: index + 1,
+        first: pageSongs[0] ?? null,
+        last: pageSongs[pageSongs.length - 1] ?? null,
+      };
+    });
 
     catalogSnapshotCache = {
       currentPage,
@@ -3355,6 +3410,7 @@ export function createStore() {
         totalItems: visibleSongs.length,
         startIndex: visibleSongs.length === 0 ? 0 : pageStart + 1,
         endIndex: Math.min(pageStart + PAGE_SIZE, visibleSongs.length),
+        pageRanges,
       },
       summary,
       summaryFilters,
