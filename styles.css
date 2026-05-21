@@ -819,9 +819,14 @@ html[data-theme="dark"] .summary-filters-toggle:hover {
   color: var(--muted);
 }
 
-.pagination-bar {
+.pagination-bar-top {
   margin-top: 14px;
   margin-bottom: 14px;
+  min-width: 0;
+}
+
+.pagination-bar-bottom {
+  margin-top: 14px;
   min-width: 0;
 }
 
@@ -2297,8 +2302,10 @@ html[data-theme="dark"] .song-card.is-selected {
   box-shadow: 0 0 30px rgba(83, 199, 207, 0.12);
 }
 
-html[data-theme="dark"] .song-card:hover {
-  box-shadow: 0 2px 32px rgba(83, 199, 207, 0.18);
+@media (hover: hover) {
+  html[data-theme="dark"] .song-card:hover {
+    box-shadow: 0 2px 32px rgba(83, 199, 207, 0.18);
+  }
 }
 
 html[data-theme="dark"] .song-card-note,
@@ -3042,8 +3049,12 @@ html[data-theme="dark"] .proposal-success-body a {
     gap: 0.65em;
   }
 
-  .pagination-bar {
+  .pagination-bar-top {
     margin-bottom: 12px;
+    margin-top: 12px;
+  }
+
+  .pagination-bar-bottom {
     margin-top: 12px;
   }
 

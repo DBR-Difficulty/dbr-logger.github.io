@@ -47,6 +47,13 @@ const RECOMMEND_OPTIONS = [
 ];
 const RECOMMEND_SORT_VALUES = ["☆", "◎", "○", "△", ""];
 const CHART_DIFFICULTY_OPTIONS = ["B", "N", "H", "A", "L"];
+const CHART_SUFFIX_ORDER = new Map([
+  ["B", 0],
+  ["N", 1],
+  ["H", 2],
+  ["A", 3],
+  ["L", 4],
+]);
 const DISPLAY_MODE_OPTIONS = [
   { value: "all", label: "すべて" },
   { value: "clear", label: "クリア" },
@@ -391,6 +398,24 @@ function formatBpmTitleSuffix(song) {
   return `BPM${bpm}`;
 }
 
+function splitTitleAndSuffix(title) {
+  const normalizedTitle = String(title ?? "");
+  const match = normalizedTitle.match(/^(.*)\(([BNHAL])\)$/);
+  if (!match) {
+    return {
+      baseTitle: normalizedTitle,
+      suffix: "",
+      suffixRank: Number.POSITIVE_INFINITY,
+    };
+  }
+
+  return {
+    baseTitle: match[1],
+    suffix: match[2],
+    suffixRank: CHART_SUFFIX_ORDER.get(match[2]) ?? Number.POSITIVE_INFINITY,
+  };
+}
+
 function getChartSuffix(title) {
   const match = String(title ?? "").match(/^(.*)\(([BNHAL])\)$/);
   return match ? match[2] : "";
@@ -419,8 +444,12 @@ function formatSortTitleSuffix(song, sortMode, axisMode = "") {
 }
 
 function formatCatalogPagePrimaryValue(song, sortMode) {
-  if (!song || sortMode === "title" || sortMode === "random" || sortMode === "chartDifficulty") {
+  if (!song || sortMode === "title" || sortMode === "random") {
     return "";
+  }
+
+  if (sortMode === "chartDifficulty") {
+    return getChartSuffix(song.title);
   }
 
   if (sortMode === "version") {
@@ -487,12 +516,16 @@ function renderCatalogPageItemLabel(song, sortMode) {
     return '<span class="pagination-range-title">-</span>';
   }
 
+  const title = sortMode === "chartDifficulty"
+    ? splitTitleAndSuffix(song.title).baseTitle
+    : song.title;  
+
   const primaryValue = formatCatalogPagePrimaryValue(song, sortMode);
   const primaryMarkup = primaryValue
     ? `<span class="pagination-range-primary">(${escapeHtml(primaryValue)})</span>`
     : "";
   return `
-    <span class="pagination-range-title">${escapeHtml(song.title)}</span>
+    <span class="pagination-range-title">${escapeHtml(title)}</span>
     ${primaryMarkup}
   `;
 }
