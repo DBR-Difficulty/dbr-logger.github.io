@@ -545,8 +545,10 @@ html[data-theme="dark"] .summary-filters-toggle {
   color: var(--muted);
 }
 
-html[data-theme="dark"] .summary-filters-toggle:hover {
-  color: #d5dde0;
+@media (hover: hover) {
+  html[data-theme="dark"] .summary-filters-toggle:hover {
+    color: #d5dde0;
+  }  
 }
 
 .button-danger {
@@ -607,8 +609,10 @@ html[data-theme="dark"] .summary-filters-toggle:hover {
   text-align: left;
 }
 
-.summary-filters-toggle:hover {
-  color: var(--text);
+@media (hover: hover) {
+  .summary-filters-toggle:hover {
+    color: var(--text);
+  }
 }
 
 .summary-filters-toggle:focus-visible {
@@ -1632,8 +1636,10 @@ html[data-theme="dark"] .summary-filters-toggle:hover {
   text-decoration: underline;
 }
 
-.entry-input-mode-link:hover {
-  color: var(--accent);
+@media (hover: hover) {
+  .entry-input-mode-link:hover {
+    color: var(--accent);
+  }
 }
 
 .field {
@@ -3205,8 +3211,10 @@ html[data-theme="dark"] .proposal-success-body a {
   text-underline-offset: 0.18em;
 }
 
-.manual-content a:hover {
-  color: var(--accent);
+@media (hover: hover) {
+  .manual-content a:hover {
+    color: var(--accent);
+  }
 }
 
 .manual-content code {
