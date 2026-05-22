@@ -1,892 +1,109 @@
 const MODULE_VERSION = new URL(import.meta.url).search;
 
 const { LAMP_OPTIONS } = await import(`../constants.js${MODULE_VERSION}`);
-const { exportVerticalCsv, importVerticalCsv } = await import(`../data/csv.js${MODULE_VERSION}`);
-const { attachKatateToDifficultyTable, fetchDifficultyTable } = await import(`../data/difficulty.js${MODULE_VERSION}`);
-const { exportDbrJson, importDbrJson } = await import(`../data/export-json.js${MODULE_VERSION}`);
-const { loadStoredState, saveStoredState } = await import(`../data/storage.js${MODULE_VERSION}`);
-const { compareIsoDates, formatLocalDateTime, todayIso } = await import(`../utils/date.js${MODULE_VERSION}`);
-const { getSearchTextMatchRank, matchesSearchText } = await import(`../utils/search.js${MODULE_VERSION}`);
-
-const RECOMMEND_OPTIONS = ["", "△", "○", "◎", "☆"];
-const RECOMMEND_SORT_OPTIONS = ["☆", "◎", "○", "△", ""];
-const CHART_DIFFICULTY_OPTIONS = ["B", "N", "H", "A", "L"];
-const DISPLAY_MODES = ["clear", "score", "all"];
-const SUMMARY_DISPLAY_MODES = ["clear", "score"];
-const SCORE_RANK_OPTIONS = ["AAA", "AA", "A", "B", "C", "D", "E", "F", "※"];
-const SCORE_RANK_SUMMARY_OPTIONS = SCORE_RANK_OPTIONS.filter((rank) => rank !== "※");
-const PAGE_SIZE = 100;
-const SORT_OPTIONS = ["title", "version", "chartDifficulty", "splv", "level", "katate", "bpm", "recommend", "clear", "bestBp", "latestBp", "bestScore", "latestScore", "latest", "entryCount", "memo", "random"];
-const AXIS_MODES = ["level", "splv", "katate", "version", "bpm", "title", "memo", "date"];
-const AXIS_MEMORY_MODES = ["level", "splv", "katate", "version", "bpm"];
-const NUMERIC_AXIS_MODES = ["level", "splv", "katate", "version", "bpm"];
-const BPM_BUCKETS = [
-  { value: "lt120", label: "min-119", min: -Infinity, max: 119.999 },
-  ...Array.from({ length: 10 }, (_, index) => {
-    const min = 120 + index * 10;
-    return { value: String(min), label: `${min}-${min + 9}`, min, max: min + 9.999 };
-  }),
-  { value: "220", label: "220-249", min: 220, max: 249.999 },
-  { value: "250", label: "250-max", min: 250, max: Infinity },
-];
-const BPM_BUCKET_ORDER = new Map(BPM_BUCKETS.map((bucket, index) => [bucket.value, index]));
-const BPM_RANGE_POINTS = [
-  "min",
-  ...Array.from({ length: 11 }, (_, index) => String(120 + index * 10)),
-  "250",
-  "max",
-];
-const BPM_RANGE_POINT_ORDER = new Map(BPM_RANGE_POINTS.map((value, index) => [value, index]));
-const VERSION_ORDER_VALUES = ["0", "1", "s", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33"];
-const VERSION_ORDER = new Map(VERSION_ORDER_VALUES.map((value, index) => [value, index]));
-const VERSION_LABELS = new Map([
-  ["0", "CS/INFINITAS"],
-  ["1", "1st style"],
-  ["s", "substream"],
-  ["2", "2nd style"],
-  ["3", "3rd style"],
-  ["4", "4th style"],
-  ["5", "5th style"],
-  ["6", "6th style"],
-  ["7", "7th style"],
-  ["8", "8th style"],
-  ["9", "9th style"],
-  ["10", "10th style"],
-  ["11", "RED"],
-  ["12", "HAPPY SKY"],
-  ["13", "DistorteD"],
-  ["14", "GOLD"],
-  ["15", "DJ TROOPERS"],
-  ["16", "EMPRESS"],
-  ["17", "SIRIUS"],
-  ["18", "Resort Anthem"],
-  ["19", "Lincle"],
-  ["20", "tricoro"],
-  ["21", "SPADA"],
-  ["22", "PENDUAL"],
-  ["23", "copula"],
-  ["24", "SINOBUZ"],
-  ["25", "CANNON BALLERS"],
-  ["26", "Rootage"],
-  ["27", "HEROIC VERSE"],
-  ["28", "BISTROVER"],
-  ["29", "CastHour"],
-  ["30", "RESIDENT"],
-  ["31", "EPOLIS"],
-  ["32", "Pinky Crush"],
-  ["33", "Sparkle Shower"],
-]);
-const VERSION_BAND_LABELS = new Map([
-  ["0", "CS/INF"],
-  ["1", "1st"],
-  ["s", "sub"],
-  ["2", "2nd"],
-  ["3", "3rd"],
-  ["4", "4th"],
-  ["5", "5th"],
-  ["6", "6th"],
-  ["7", "7th"],
-  ["8", "8th"],
-  ["9", "9th"],
-  ["10", "10th"],
-  ["11", "RED"],
-  ["12", "SKY"],
-  ["13", "DD"],
-  ["14", "GOLD"],
-  ["15", "DJT"],
-  ["16", "EMP"],
-  ["17", "SIR"],
-  ["18", "RA"],
-  ["19", "LC"],
-  ["20", "tri"],
-  ["21", "SPA"],
-  ["22", "PEN"],
-  ["23", "cop"],
-  ["24", "SINO"],
-  ["25", "CAN"],
-  ["26", "Root"],
-  ["27", "HERO"],
-  ["28", "BIS"],
-  ["29", "Cast"],
-  ["30", "RESI"],
-  ["31", "EPO"],
-  ["32", "Pink"],
-  ["33", "SPS"],
-]);
-const PLAY_DATE_RESET_HOUR = 5;
-const PLAY_DATE_CHAIN_THRESHOLD_MS = 60 * 60 * 1000;
-const AXIS_RANGE_MODE_DISABLED = {
-  level: false,
-  splv: false,
-  katate: false,
-  version: false,
-  bpm: false,
-};
-const DEFAULT_SORT_MODE_BY_AXIS = {
-  level: "level",
-  splv: "splv",
-  katate: "katate",
-  version: "version",
-  bpm: "bpm",
-  title: "title",
-  memo: "memo",
-  date: "latest",
-};
-const CHART_SUFFIX_ORDER = new Map([
-  ["B", 0],
-  ["N", 1],
-  ["H", 2],
-  ["A", 3],
-  ["L", 4],
-]);
-const SCORE_RANKS = [
-  { label: "MAX", numerator: 9 },
-  { label: "AAA", numerator: 8 },
-  { label: "AA", numerator: 7 },
-  { label: "A", numerator: 6 },
-  { label: "B", numerator: 5 },
-  { label: "C", numerator: 4 },
-  { label: "D", numerator: 3 },
-  { label: "E", numerator: 2 },
-  { label: "F", numerator: 0 },
-];
-const RECORD_ID_PREFIX = "record--";
-
-function createRecordId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return `${RECORD_ID_PREFIX}${crypto.randomUUID()}`;
-  }
-
-  return `${RECORD_ID_PREFIX}${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function isCanonicalRecordId(id) {
-  return typeof id === "string" && id.startsWith(RECORD_ID_PREFIX);
-}
-
-function splitTitleAndSuffix(title) {
-  const normalizedTitle = String(title ?? "");
-  const match = normalizedTitle.match(/^(.*)\(([BNHAL])\)$/);
-  if (!match) {
-    return {
-      baseTitle: normalizedTitle,
-      suffix: "",
-      suffixRank: Number.POSITIVE_INFINITY,
-    };
-  }
-
-  return {
-    baseTitle: match[1],
-    suffix: match[2],
-    suffixRank: CHART_SUFFIX_ORDER.get(match[2]) ?? Number.POSITIVE_INFINITY,
-  };
-}
-
-function compareTitlesWithSuffixOrder(aTitle, bTitle) {
-  const a = splitTitleAndSuffix(aTitle);
-  const b = splitTitleAndSuffix(bTitle);
-  const baseCompare = a.baseTitle.localeCompare(b.baseTitle, "ja");
-  if (baseCompare !== 0) {
-    return baseCompare;
-  }
-
-  if (a.suffixRank !== b.suffixRank) {
-    return a.suffixRank - b.suffixRank;
-  }
-
-  return String(aTitle).localeCompare(String(bTitle), "ja");
-}
-
-function sortSongs(a, b) {
-  return a.sortOrder - b.sortOrder || a.reserveOrder - b.reserveOrder || compareTitlesWithSuffixOrder(a.title, b.title);
-}
-
-function sortRecords(a, b) {
-  return compareRecordTimestamps(a, b) || compareIsoDates(a.date, b.date) || compareTitlesWithSuffixOrder(a.title, b.title);
-}
-
-function normalizeRecordComparableValue(value) {
-  return value === undefined ? null : value;
-}
-
-function areCsvRecordValuesEqual(a, b) {
-  return normalizeRecordTimestamp(a?.timestamp, a?.date) === normalizeRecordTimestamp(b?.timestamp, b?.date)
-    && String(a?.date ?? "") === String(b?.date ?? "")
-    && String(a?.title ?? "") === String(b?.title ?? "")
-    && String(a?.textageKey ?? "") === String(b?.textageKey ?? "")
-    && String(a?.lamp ?? "NO PLAY") === String(b?.lamp ?? "NO PLAY")
-    && normalizeRecordComparableValue(parseOptionalNumber(a?.bp)) === normalizeRecordComparableValue(parseOptionalNumber(b?.bp))
-    && normalizeRecordComparableValue(parseOptionalNumber(a?.score)) === normalizeRecordComparableValue(parseOptionalNumber(b?.score))
-    && normalizeRecordComparableValue(parseOptionalNumber(a?.level)) === normalizeRecordComparableValue(parseOptionalNumber(b?.level))
-    && normalizeRecordComparableValue(parseOptionalNumber(a?.splv)) === normalizeRecordComparableValue(parseOptionalNumber(b?.splv))
-    && String(a?.source ?? "") === String(b?.source ?? "");
-}
-
-function getCsvRecordMergeKey(record) {
-  const timestamp = normalizeRecordTimestamp(record?.timestamp, record?.date);
-  const textageKey = typeof record?.textageKey === "string" ? record.textageKey.trim() : "";
-  const title = typeof record?.title === "string" ? record.title.trim() : "";
-
-  if (textageKey) {
-    return `textageKey:${textageKey}::timestamp:${timestamp}`;
-  }
-
-  return `title:${title}::timestamp:${timestamp}`;
-}
-
-function getJsonRecordMergeKey(record) {
-  const date = typeof record?.date === "string" ? record.date.trim() : "";
-  const textageKey = typeof record?.textageKey === "string" ? record.textageKey.trim() : "";
-  const title = typeof record?.title === "string" ? record.title.trim() : "";
-
-  if (textageKey) {
-    return `textageKey:${textageKey}::date:${date}`;
-  }
-
-  return `title:${title}::date:${date}`;
-}
-
-function normalizeRecordTimestamp(timestamp, date) {
-  const normalized = String(timestamp ?? "").trim();
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(normalized)) {
-    return normalized;
-  }
-
-  return date ? `${date}T00:00:00` : "";
-}
-
-function parseRecordTimestampMs(record) {
-  const timestamp = normalizeRecordTimestamp(record?.timestamp, record?.date);
-  if (!timestamp) {
-    return null;
-  }
-
-  const parsed = new Date(timestamp).getTime();
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function compareRecordTimestamps(a, b) {
-  const aTimestamp = normalizeRecordTimestamp(a?.timestamp, a?.date);
-  const bTimestamp = normalizeRecordTimestamp(b?.timestamp, b?.date);
-  return aTimestamp.localeCompare(bTimestamp);
-}
-
-function getLampRank(lamp) {
-  const rank = LAMP_OPTIONS.indexOf(lamp);
-  return rank >= 0 ? rank : 0;
-}
-
-function pickBetterLamp(a, b) {
-  return getLampRank(a) >= getLampRank(b) ? a : b;
-}
-
-function parseOptionalNumber(value) {
-  if (value === "" || value === null || value === undefined) {
-    return null;
-  }
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function parseBpmSortValue(value) {
-  const normalized = String(value ?? "").trim();
-  if (!normalized) {
-    return null;
-  }
-
-  const values = normalized
-    .match(/\d+(?:\.\d+)?/g)
-    ?.map(Number)
-    .filter(Number.isFinite) ?? [];
-
-  return values.length ? Math.max(...values) : null;
-}
-
-function getBpmBucketValue(bpmValue) {
-  if (!Number.isFinite(bpmValue)) {
-    return "";
-  }
-
-  const bucket = BPM_BUCKETS.find((candidate) => bpmValue >= candidate.min && bpmValue <= candidate.max);
-  return bucket?.value ?? "";
-}
-
-function getBpmBucketOrderValue(value) {
-  return BPM_BUCKET_ORDER.has(value) ? BPM_BUCKET_ORDER.get(value) : null;
-}
-
-function getBpmBucketLabel(value) {
-  return BPM_BUCKETS.find((bucket) => bucket.value === value)?.label ?? "-";
-}
-
-function getBpmRangePointOrderValue(value) {
-  return BPM_RANGE_POINT_ORDER.has(value) ? BPM_RANGE_POINT_ORDER.get(value) : null;
-}
-
-function normalizeVersionValue(value) {
-  return String(value ?? "").trim();
-}
-
-function getVersionOrderValue(value) {
-  const normalized = normalizeVersionValue(value);
-  return VERSION_ORDER.has(normalized) ? VERSION_ORDER.get(normalized) : null;
-}
-
-function getVersionDisplayLabel(value) {
-  const normalized = normalizeVersionValue(value);
-  return VERSION_LABELS.get(normalized) ?? (normalized || "不明");
-}
-
-function getVersionBandLabel(value) {
-  const normalized = normalizeVersionValue(value);
-  return VERSION_BAND_LABELS.get(normalized) ?? (normalized || "-");
-}
-
-function getScoreMax(songOrRecord) {
-  const rawScratch = songOrRecord?.scratch;
-  if (rawScratch === null || rawScratch === undefined || rawScratch === "") {
-    return null;
-  }
-
-  const notes = Number(songOrRecord?.notes);
-  const scratch = Number(rawScratch);
-  if (!Number.isFinite(notes) || notes <= 0 || !Number.isFinite(scratch)) {
-    return null;
-  }
-
-  const keyNotes = notes - scratch;
-  return keyNotes > 0 ? keyNotes * 4 : null;
-}
-
-function getScoreRate(score, songOrRecord) {
-  const maxScore = getScoreMax(songOrRecord);
-  return Number.isFinite(score) && maxScore ? score / maxScore : null;
-}
-
-function getScoreRankInfo(score, songOrRecord) {
-  const maxScore = getScoreMax(songOrRecord);
-  if (!maxScore) {
-    return {
-      label: "※",
-      display: "※",
-      rate: null,
-      score: null,
-    };
-  }
-
-  if (!Number.isFinite(score)) {
-    return {
-      label: "F",
-      display: "-",
-      rate: null,
-      score: null,
-    };
-  }
-
-  const normalizedScore = Math.max(0, Math.min(score, maxScore));
-  let achievedRank = SCORE_RANKS[SCORE_RANKS.length - 1];
-  for (const candidate of SCORE_RANKS) {
-    if (normalizedScore >= Math.round(maxScore * (candidate.numerator / 9))) {
-      achievedRank = candidate;
-      break;
-    }
-  }
-
-  return {
-    label: achievedRank.label === "MAX" ? "MAX" : achievedRank.label,
-    display: `${((normalizedScore / maxScore) * 100).toFixed(2)}%`,
-    rate: normalizedScore / maxScore,
-    score: normalizedScore,
-  };
-}
-
-function formatSaveScoreChangeValue(score, songOrRecord) {
-  if (!Number.isFinite(score)) {
-    return "-(-)";
-  }
-
-  const rate = getScoreRate(score, songOrRecord);
-  if (rate === null) {
-    return String(score);
-  }
-
-  return `${score}(${(rate * 100).toFixed(2)}%)`;
-}
-
-function formatSaveBpChangeValue(bp) {
-  return Number.isFinite(bp) ? String(bp) : "-";
-}
-
-function buildSaveNotification(lines) {
-  const visibleLines = lines.filter(Boolean);
-  return visibleLines.length
-    ? `保存しました。\n\n${visibleLines.join("\n")}`
-    : "保存しました。";
-}
-
-function normalizeRecommendSelection(values) {
-  if (!Array.isArray(values)) {
-    return [...RECOMMEND_OPTIONS];
-  }
-
-  return [...new Set(values.filter((value) => RECOMMEND_OPTIONS.includes(value)))];
-}
-
-function normalizeRecommendSortHead(value) {
-  return RECOMMEND_SORT_OPTIONS.includes(value) ? value : RECOMMEND_SORT_OPTIONS[0];
-}
-
-function getRecommendSortChoicesFromSongs(songs) {
-  const recommends = new Set(songs.map((song) => String(song.recommend ?? "")));
-  return RECOMMEND_SORT_OPTIONS.filter((recommend) => recommends.has(recommend));
-}
-
-function normalizeRecommendSortHeadForChoices(value, choices) {
-  return choices.includes(value) ? value : (choices[0] ?? normalizeRecommendSortHead(value));
-}
-
-function normalizeRecommendSortHeadMemory(memory) {
-  const normalized = {};
-  AXIS_MODES.forEach((axisMode) => {
-    const value = normalizeRecommendSortHead(memory?.[axisMode]);
-    if (value !== RECOMMEND_SORT_OPTIONS[0]) {
-      normalized[axisMode] = value;
-    }
-  });
-  return normalized;
-}
-
-function normalizeChartDifficultySelection(values) {
-  if (!Array.isArray(values)) {
-    return [...CHART_DIFFICULTY_OPTIONS];
-  }
-
-  return [...new Set(values.filter((value) => CHART_DIFFICULTY_OPTIONS.includes(value)))];
-}
-
-function normalizeChartDifficultySortHead(value) {
-  return CHART_DIFFICULTY_OPTIONS.includes(value) ? value : CHART_DIFFICULTY_OPTIONS[0];
-}
-
-function getChartDifficultySortChoicesFromSongs(songs) {
-  const suffixes = new Set(
-    songs.map((song) => splitTitleAndSuffix(song.title).suffix)
-      .filter((suffix) => CHART_DIFFICULTY_OPTIONS.includes(suffix)),
-  );
-
-  return CHART_DIFFICULTY_OPTIONS.filter((suffix) => suffixes.has(suffix));
-}
-
-function normalizeChartDifficultySortHeadForChoices(value, choices) {
-  return choices.includes(value) ? value : (choices[0] ?? normalizeChartDifficultySortHead(value));
-}
-
-function getChartDifficultyRotationState(songs, head) {
-  const choices = getChartDifficultySortChoicesFromSongs(songs);
-  const effectiveHead = choices.length > 0
-    ? normalizeChartDifficultySortHeadForChoices(head, choices)
-    : normalizeChartDifficultySortHead(head);
-  const direction = choices.length > 0 && effectiveHead === choices[choices.length - 1] ? "desc" : "asc";
-
-  return {
-    choices,
-    head: effectiveHead,
-    direction,
-  };
-}
-
-function normalizeChartDifficultySortHeadMemory(memory) {
-  const normalized = {};
-  AXIS_MODES.forEach((axisMode) => {
-    const value = normalizeChartDifficultySortHead(memory?.[axisMode]);
-    if (value !== CHART_DIFFICULTY_OPTIONS[0]) {
-      normalized[axisMode] = value;
-    }
-  });
-  return normalized;
-}
-
-function normalizeLampSelection(values) {
-  if (!Array.isArray(values)) {
-    return [...LAMP_OPTIONS];
-  }
-
-  return LAMP_OPTIONS.filter((lamp) => values.includes(lamp));
-}
-
-function normalizeScoreRankSelection(values) {
-  if (!Array.isArray(values)) {
-    return [...SCORE_RANK_OPTIONS];
-  }
-
-  const oldAllSelected = SCORE_RANK_OPTIONS
-    .filter((rank) => rank !== "※")
-    .every((rank) => values.includes(rank));
-  if (oldAllSelected && !values.includes("※")) {
-    return [...SCORE_RANK_OPTIONS];
-  }
-
-  return SCORE_RANK_OPTIONS.filter((rank) => values.includes(rank));
-}
-
-function normalizeBooleanFilter(value) {
-  return value === "yes" || value === "no" ? value : "all";
-}
-
-function normalizeDisplayMode(value) {
-  return DISPLAY_MODES.includes(value) ? value : "all";
-}
-
-function normalizeSummaryDisplayMode(value) {
-  return SUMMARY_DISPLAY_MODES.includes(value) ? value : "clear";
-}
-
-function isScoreDisplayMode(displayMode) {
-  return displayMode === "score";
-}
-
-function isClearSummaryMode(displayMode) {
-  return displayMode === "clear" || displayMode === "all";
-}
-
-function getEffectiveSummaryDisplayMode(filters) {
-  const displayMode = normalizeDisplayMode(filters?.displayMode);
-  if (displayMode === "clear" || displayMode === "score") {
-    return displayMode;
-  }
-
-  return normalizeSummaryDisplayMode(filters?.summaryDisplayMode);
-}
-
-function normalizeSongDataFilterPair(infValue, acdeleteValue) {
-  const inf = normalizeBooleanFilter(infValue);
-  const acdelete = normalizeBooleanFilter(acdeleteValue);
-  const isSupportedPair = (
-    (inf === "all" && acdelete === "all")
-    || (inf === "all" && acdelete === "no")
-    || (inf === "yes" && acdelete === "all")
-    || (inf === "no" && acdelete === "no")
-    || (inf === "yes" && acdelete === "yes")
-    || (inf === "no" && acdelete === "yes")
-  );
-
-  return isSupportedPair
-    ? { inf, acdelete }
-    : { inf: "all", acdelete: "all" };
-}
-
-function normalizeUnratedFilter(value) {
-  return value === "all" || value === "rated" || value === "unrated" ? value : "all";
-}
-
-function normalizeAxisMode(value) {
-  return AXIS_MODES.includes(value) ? value : "splv";
-}
-
-function isTextAxisMode(axisMode) {
-  return axisMode === "title" || axisMode === "memo";
-}
-
-function isNumericAxisMode(axisMode) {
-  return NUMERIC_AXIS_MODES.includes(axisMode);
-}
-
-function isAxisRangeModeEnabled(filters) {
-  return isNumericAxisMode(filters.axisMode) && Boolean(filters.axisRangeModeByAxis?.[filters.axisMode]);
-}
-
-function normalizeAxisMemory(axisMemory) {
-  return {
-    level: typeof axisMemory?.level === "string" ? axisMemory.level : "",
-    splv: typeof axisMemory?.splv === "string" ? axisMemory.splv : "",
-    katate: typeof axisMemory?.katate === "string" ? axisMemory.katate : "",
-    version: typeof axisMemory?.version === "string" ? axisMemory.version : "",
-    bpm: typeof axisMemory?.bpm === "string" ? axisMemory.bpm : "",
-  };
-}
-
-function normalizeAxisRangeModeByAxis(rangeModeByAxis) {
-  return {
-    level: Boolean(rangeModeByAxis?.level),
-    splv: Boolean(rangeModeByAxis?.splv),
-    katate: Boolean(rangeModeByAxis?.katate),
-    version: Boolean(rangeModeByAxis?.version),
-    bpm: Boolean(rangeModeByAxis?.bpm),
-  };
-}
-
-function normalizeAxisRangePair(range) {
-  const start = typeof range?.start === "string" ? range.start : "";
-  const end = typeof range?.end === "string" ? range.end : "";
-  const normalized = normalizeRangePair(start, end);
-  return {
-    start: typeof normalized.min === "string" ? normalized.min : "",
-    end: typeof normalized.max === "string" ? normalized.max : "",
-  };
-}
-
-function normalizeVersionRangePair(range) {
-  const start = typeof range?.start === "string" ? range.start : "";
-  const end = typeof range?.end === "string" ? range.end : "";
-  const startOrder = getVersionOrderValue(start);
-  const endOrder = getVersionOrderValue(end);
-  if (startOrder !== null && endOrder !== null && startOrder > endOrder) {
-    return { start: end, end: start };
-  }
-
-  return { start, end };
-}
-
-function normalizeBpmRangePair(range) {
-  const start = typeof range?.start === "string" ? range.start : "";
-  const end = typeof range?.end === "string" ? range.end : "";
-  const startOrder = getBpmRangePointOrderValue(start);
-  const endOrder = getBpmRangePointOrderValue(end);
-  if (startOrder !== null && endOrder !== null && startOrder === endOrder) {
-    return { start: BPM_RANGE_POINTS[0], end: BPM_RANGE_POINTS[BPM_RANGE_POINTS.length - 1] };
-  }
-  if (startOrder !== null && endOrder !== null && startOrder > endOrder) {
-    return { start: end, end: start };
-  }
-
-  return { start, end };
-}
-
-function normalizeAxisRanges(axisRanges) {
-  return {
-    level: normalizeAxisRangePair(axisRanges?.level),
-    splv: normalizeAxisRangePair(axisRanges?.splv),
-    katate: normalizeAxisRangePair(axisRanges?.katate),
-    version: normalizeVersionRangePair(axisRanges?.version),
-    bpm: normalizeBpmRangePair(axisRanges?.bpm),
-  };
-}
-
-function normalizeAxisSingleReturnValues(axisSingleReturnValues) {
-  return {
-    level: typeof axisSingleReturnValues?.level === "string" ? axisSingleReturnValues.level : "",
-    splv: typeof axisSingleReturnValues?.splv === "string" ? axisSingleReturnValues.splv : "",
-    katate: typeof axisSingleReturnValues?.katate === "string" ? axisSingleReturnValues.katate : "",
-    version: typeof axisSingleReturnValues?.version === "string" ? axisSingleReturnValues.version : "",
-    bpm: typeof axisSingleReturnValues?.bpm === "string" ? axisSingleReturnValues.bpm : "",
-  };
-}
-
-function normalizeSortModeMemory(sortModeMemory) {
-  const normalized = {};
-  AXIS_MODES.forEach((axisMode) => {
-    if (SORT_OPTIONS.includes(sortModeMemory?.[axisMode])) {
-      normalized[axisMode] = sortModeMemory[axisMode];
-    }
-  });
-  return normalized;
-}
-
-function normalizeDateRangeMemory(dateRangeMemory) {
-  return normalizeDateRange(dateRangeMemory?.dateStart, dateRangeMemory?.dateEnd);
-}
-
-function getDefaultSortModeForAxis(axisMode) {
-  return DEFAULT_SORT_MODE_BY_AXIS[axisMode] ?? "splv";
-}
-
-function normalizeDateValue(value) {
-  const normalized = String(value ?? "").trim();
-  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : "";
-}
-
-function normalizeDateSelectionMode(value) {
-  return value === "range" ? "range" : "single";
-}
-
-function normalizeDateRange(startValue, endValue) {
-  const start = normalizeDateValue(startValue);
-  const end = normalizeDateValue(endValue);
-
-  if (start && end && start > end) {
-    return { dateStart: end, dateEnd: start };
-  }
-
-  return { dateStart: start, dateEnd: end };
-}
-
-function normalizeRangePair(minValue, maxValue) {
-  const minNumber = parseOptionalNumber(minValue);
-  const maxNumber = parseOptionalNumber(maxValue);
-
-  if (minNumber === null || maxNumber === null || minNumber <= maxNumber) {
-    return { min: minValue, max: maxValue };
-  }
-
-  return { min: maxValue, max: minValue };
-}
-
-function normalizeStoredFilters(filters) {
-  const dateRange = normalizeDateRange(filters?.dateStart, filters?.dateEnd);
-  const songDataFilter = normalizeSongDataFilterPair(filters?.inf, filters?.acdelete);
-
-  return {
-    axisMode: normalizeAxisMode(filters?.axisMode),
-    axisValue: typeof filters?.axisValue === "string" ? filters.axisValue : "",
-    titleQuery: typeof filters?.titleQuery === "string" ? filters.titleQuery : "",
-    dateSelectionMode: normalizeDateSelectionMode(filters?.dateSelectionMode),
-    dateSingle: normalizeDateValue(filters?.dateSingle) || todayIso(),
-    dateStart: dateRange.dateStart,
-    dateEnd: dateRange.dateEnd,
-    axisRangeModeByAxis: normalizeAxisRangeModeByAxis(filters?.axisRangeModeByAxis),
-    axisRanges: normalizeAxisRanges(filters?.axisRanges),
-    axisLastRanges: normalizeAxisRanges(filters?.axisLastRanges),
-    axisSingleReturnValues: normalizeAxisSingleReturnValues(filters?.axisSingleReturnValues),
-    displayMode: normalizeDisplayMode(filters?.displayMode),
-    summaryDisplayMode: normalizeSummaryDisplayMode(filters?.summaryDisplayMode),
-    recommend: normalizeRecommendSelection(filters?.recommend),
-    chartDifficulties: normalizeChartDifficultySelection(filters?.chartDifficulties),
-    versionChartDifficulties: normalizeChartDifficultySelection(filters?.versionChartDifficulties),
-    lamps: normalizeLampSelection(filters?.lamps),
-    scoreRanks: normalizeScoreRankSelection(filters?.scoreRanks),
-    inf: songDataFilter.inf,
-    acdelete: songDataFilter.acdelete,
-    includeUnrated: normalizeUnratedFilter(filters?.includeUnrated),
-  };
-}
-
-function normalizeSortMode(sortMode) {
-  return SORT_OPTIONS.includes(sortMode) ? sortMode : "splv";
-}
-
-function normalizeSortModeForDisplay(sortMode, displayMode) {
-  if (displayMode === "score") {
-    if (sortMode === "bestBp") {
-      return "bestScore";
-    }
-
-    if (sortMode === "latestBp") {
-      return "latestScore";
-    }
-  }
-
-  if (displayMode === "clear") {
-    if (sortMode === "bestScore") {
-      return "bestBp";
-    }
-
-    if (sortMode === "latestScore") {
-      return "latestBp";
-    }
-  }
-
-  return normalizeSortMode(sortMode);
-}
-
-function normalizeSortDirection(sortDirection) {
-  return sortDirection === "desc" ? "desc" : "asc";
-}
-
-function normalizeRandomSeed(seed) {
-  return Number.isFinite(seed) ? seed : 1;
-}
-
-function normalizeCatalogViewMode(catalogViewMode) {
-  return catalogViewMode === "list" ? "list" : "card";
-}
-
-function normalizeDifficultyTableUpdatedAt(stored) {
-  if (Number.isFinite(stored?.difficultyTableUpdatedAt)) {
-    return stored.difficultyTableUpdatedAt;
-  }
-
-  const importedAt = stored?.difficultyTable?.importedAt;
-  if (typeof importedAt === "string") {
-    const parsed = Date.parse(importedAt);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-
-  return 0;
-}
-
-function buildRecordIndex(records) {
-  const index = new Map();
-
-  records.forEach((record) => {
-    if (!index.has(record.title)) {
-      index.set(record.title, []);
-    }
-    index.get(record.title).push(record);
-  });
-
-  index.forEach((history) => history.sort(sortRecords));
-  return index;
-}
-
-function getRecordPlayDate(record) {
-  return record.playDate || record.date;
-}
-
-function getCatalogItemKey(entry) {
-  return entry?.catalogItemKey || `title:${entry?.title ?? ""}`;
-}
-
-function applyPlayDateAdjustment(records) {
-  const sortedRecords = [...records].sort(sortRecords);
-  let previousRecord = null;
-  let previousPlayDate = "";
-
-  return sortedRecords.map((record) => {
-    let playDate = record.date;
-    const recordTime = parseRecordTimestampMs(record);
-    const previousTime = parseRecordTimestampMs(previousRecord);
-    const timestamp = normalizeRecordTimestamp(record.timestamp, record.date);
-    const hour = Number(timestamp.slice(11, 13));
-    const previousBaseDate = previousPlayDate || previousRecord?.date || "";
-    const shouldInheritPlayDate = previousRecord
-      && previousTime !== null
-      && recordTime !== null
-      && record.date !== previousBaseDate
-      && recordTime - previousTime >= 0
-      && recordTime - previousTime <= PLAY_DATE_CHAIN_THRESHOLD_MS
-      && Number.isFinite(hour)
-      && hour < PLAY_DATE_RESET_HOUR;
-
-    if (shouldInheritPlayDate) {
-      playDate = previousPlayDate || previousRecord.date;
-    }
-
-    previousRecord = record;
-    previousPlayDate = playDate;
-
-    const adjustedRecord = { ...record, playDate };
-    return adjustedRecord;
-  });
-}
-
-function buildDifficultyTextageIndex(difficultyTable) {
-  const index = new Map();
-
-  difficultyTable?.entries?.forEach((entry) => {
-    if (entry?.title && entry?.textageid && !index.has(entry.title)) {
-      index.set(entry.title, entry.textageid);
-    }
-  });
-
-  return index;
-}
+const {
+  areCsvRecordValuesEqual,
+  buildDifficultyTextageIndex,
+  buildRecordIndex,
+  createPersistedState,
+  createRecordId,
+  createTextageKeyFromCatalogEntry,
+  exportRecordsAsCsv,
+  exportRecordsAsDbrJson,
+  getCsvRecordMergeKey,
+  getLampRank,
+  getCurrentRecordDate,
+  getCurrentRecordTimestamp,
+  getJsonRecordMergeKey,
+  loadAppData,
+  loadRemoteDifficultyTable,
+  hydrateDifficultyTableWithKatate,
+  migrateRecordTitlesByTextageKey,
+  needsRecordIdMigration,
+  normalizeDifficultyTableUpdatedAt,
+  needsRecordTimestampMigration,
+  normalizeRecordTimestamp,
+  normalizeRecords,
+  normalizeSongs,
+  parseCsvRecords,
+  parseDbrJsonRecords,
+  parseOptionalNumber,
+  pickBetterLamp,
+  saveAppData,
+  sortRecords,
+  updateTextageKeyFromDifficultyTable,
+} = await import(`./data.js${MODULE_VERSION}`);
+const {
+  AXIS_MEMORY_MODES,
+  AXIS_RANGE_MODE_DISABLED,
+  CHART_DIFFICULTY_OPTIONS,
+  PAGE_SIZE,
+  RECOMMEND_OPTIONS,
+  RECOMMEND_SORT_OPTIONS,
+  SCORE_RANK_OPTIONS,
+  applySortDirectionFallbackIfNoPrimaryEffect,
+  compareCatalogSongs,
+  compareVisibleSongPriority: compareVisibleSongPriorityForFilters,
+  createRecordScopedCatalogItem,
+  getCatalogItemKey,
+  getChartDifficultyRotationState,
+  getDateFilterReturnBase,
+  getDefaultDateRangeFromRecords,
+  getDefaultSortModeForAxis,
+  getEffectiveSummaryDisplayMode,
+  filterHistoryByDateRange,
+  getRecommendSortChoicesFromSongs,
+  isTextAxisMode,
+  matchesFiltersFor,
+  matchesRecordScopedResultFilter,
+  normalizeAxisMode,
+  normalizeAxisRangeModeByAxis,
+  shouldUseRecordScopedCatalog,
+  normalizeAxisRanges,
+  normalizeAxisSingleReturnValues,
+  normalizeCatalogViewMode,
+  normalizeChartDifficultySelection,
+  normalizeChartDifficultySortHead,
+  normalizeChartDifficultySortHeadForChoices,
+  normalizeChartDifficultySortHeadMemory,
+  normalizeDateRange,
+  normalizeDateRangeMemory,
+  normalizeDateSelectionMode,
+  normalizeDateValue,
+  normalizeBooleanFilter,
+  normalizeDisplayMode,
+  normalizeLampSelection,
+  normalizeRecommendSelection,
+  normalizeScoreRankSelection,
+  normalizeRecommendSortHead,
+  normalizeRecommendSortHeadForChoices,
+  normalizeRecommendSortHeadMemory,
+  normalizeSortDirection,
+  normalizeSortMode,
+  normalizeSortModeForDisplay,
+  normalizeSortModeMemory,
+  normalizeStoredFilters,
+  normalizeSongDataFilterPair,
+  normalizeSummaryDisplayMode,
+  normalizeUnratedFilter,
+  normalizeRandomSeed,
+  normalizeAxisMemory,
+} = await import(`./filters.js${MODULE_VERSION}`);
+const {
+  applyDateScopedDisplayValues,
+  applyPlayDateAdjustment,
+  buildCatalogSummary,
+  buildSaveNotification,
+  createDifficultyCatalogEntries,
+  deriveSongState,
+  formatSaveBpChangeValue,
+  formatSaveScoreChangeValue,
+  getScoreRankInfo,
+} = await import(`./stats.js${MODULE_VERSION}`);
+const { createEventBus } = await import(`./events.js${MODULE_VERSION}`);
 
 function nowTimestamp() {
   return Date.now();
-}
-
-function getLatestFiniteValue(history, key) {
-  for (let index = history.length - 1; index >= 0; index -= 1) {
-    const value = history[index]?.[key];
-    if (Number.isFinite(value)) {
-      return value;
-    }
-  }
-
-  return null;
 }
 
 function normalizeStoredData(stored) {
@@ -918,23 +135,8 @@ function normalizeStoredData(stored) {
     : normalizeSortMode(stored.sortMode);
 
   return {
-    songs: [...stored.songs].sort(sortSongs),
-    records: [...stored.records]
-      .filter((record) => record?.date && record?.title)
-      .map((record) => ({
-        id: isCanonicalRecordId(record.id) ? record.id : createRecordId(),
-        timestamp: normalizeRecordTimestamp(record.timestamp, record.date),
-        date: record.date,
-        title: record.title,
-        level: parseOptionalNumber(record.level),
-        splv: parseOptionalNumber(record.splv),
-        lamp: LAMP_OPTIONS.includes(record.lamp) ? record.lamp : "NO PLAY",
-        bp: parseOptionalNumber(record.bp),
-        score: parseOptionalNumber(record.score),
-        textageKey: typeof record.textageKey === "string" ? record.textageKey : "",
-        source: record.source || "manual",
-      }))
-      .sort(sortRecords),
+    songs: normalizeSongs(stored.songs),
+    records: normalizeRecords(stored.records),
     difficultyTable: stored.difficultyTable ?? null,
     difficultyTableUpdatedAt: normalizeDifficultyTableUpdatedAt(stored),
     songNotes: typeof stored.songNotes === "object" && stored.songNotes !== null ? { ...stored.songNotes } : {},
@@ -969,932 +171,8 @@ function normalizeStoredData(stored) {
   };
 }
 
-function needsRecordTimestampMigration(records) {
-  if (!Array.isArray(records)) {
-    return false;
-  }
-
-  return records.some((record) => (
-    record?.date
-    && record?.title
-    && normalizeRecordTimestamp(record.timestamp, record.date) !== String(record.timestamp ?? "").trim()
-  ));
-}
-
-function needsRecordIdMigration(records) {
-  if (!Array.isArray(records)) {
-    return false;
-  }
-
-  return records.some((record) => (
-    record?.date
-    && record?.title
-    && !isCanonicalRecordId(record.id)
-  ));
-}
-
-function deriveSongState(song, history = []) {
-  const latest = history.at(-1) ?? null;
-  const latestBp = getLatestFiniteValue(history, "bp");
-  const latestScore = getLatestFiniteValue(history, "score");
-  const bestLamp = history.reduce((best, record) => pickBetterLamp(best, record.lamp), song.initialLamp);
-  const historicalBpValues = history.map((record) => record.bp).filter((value) => Number.isFinite(value));
-  const historicalBest = historicalBpValues.length > 0 ? Math.min(...historicalBpValues) : Number.POSITIVE_INFINITY;
-  const historicalBestScore = history.reduce((best, record) => (
-    record.score === null || record.score === undefined ? best : Math.max(best, record.score)
-  ), Number.NEGATIVE_INFINITY);
-  const bestCandidates = [song.initialBestBp, Number.isFinite(historicalBest) ? historicalBest : null].filter((value) => value != null);
-  const bestScore = Number.isFinite(historicalBestScore) ? historicalBestScore : null;
-  const bestScoreRank = getScoreRankInfo(bestScore, song);
-  const latestScoreRank = getScoreRankInfo(latestScore, song);
-  const scoreMax = getScoreMax(song);
-
-  return {
-    ...song,
-    history,
-    entryCount: history.length,
-    latestDate: latest?.date ?? null,
-    latestTimestamp: latest ? normalizeRecordTimestamp(latest.timestamp, latest.date) : null,
-    latestLamp: latest?.lamp ?? song.initialLamp,
-    bestLamp,
-    currentBp: latestBp ?? song.initialBestBp,
-    bestBp: bestCandidates.length > 0 ? Math.min(...bestCandidates) : null,
-    currentScore: latestScore,
-    bestScore,
-    scoreMax,
-    bestScoreRate: bestScoreRank.rate,
-    currentScoreRate: latestScoreRank.rate,
-    bestScoreLabel: bestScoreRank.display,
-    currentScoreLabel: latestScoreRank.display,
-    scoreRank: bestScoreRank.label,
-    scoreFilterRank: bestScoreRank.label === "MAX" ? "AAA" : bestScoreRank.label,
-  };
-}
-
-function filterHistoryByDateRange(history, filters) {
-  if (filters.axisMode !== "date") {
-    return history;
-  }
-
-  if (filters.dateSelectionMode === "single") {
-    const dateSingle = normalizeDateValue(filters.dateSingle) || todayIso();
-    return history.filter((record) => getRecordPlayDate(record) === dateSingle);
-  }
-
-  const { dateStart, dateEnd } = normalizeDateRange(filters.dateStart, filters.dateEnd);
-  if (!dateStart && !dateEnd) {
-    return history;
-  }
-
-  return history.filter((record) => {
-    const playDate = getRecordPlayDate(record);
-    if (dateStart && playDate < dateStart) {
-      return false;
-    }
-
-    if (dateEnd && playDate > dateEnd) {
-      return false;
-    }
-
-    return true;
-  });
-}
-
-function applyDateScopedDisplayValues(songState, filters) {
-  if (filters.axisMode !== "date") {
-    return songState;
-  }
-
-  const dateScopedHistory = filterHistoryByDateRange(songState.history, filters);
-  const dateScopedLatestBp = getLatestFiniteValue(dateScopedHistory, "bp");
-  const dateScopedLatestScore = getLatestFiniteValue(dateScopedHistory, "score");
-  const dateScopedBestScore = dateScopedHistory.reduce((best, record) => (
-    record.score === null || record.score === undefined ? best : Math.max(best, record.score)
-  ), Number.NEGATIVE_INFINITY);
-  const bestScore = Number.isFinite(dateScopedBestScore) ? dateScopedBestScore : null;
-  const bestScoreRank = getScoreRankInfo(bestScore, songState);
-  const latestScoreRank = getScoreRankInfo(dateScopedLatestScore, songState);
-
-  return {
-    ...songState,
-    bestLamp: dateScopedHistory.reduce((best, record) => pickBetterLamp(best, record.lamp), songState.initialLamp),
-    currentBp: dateScopedLatestBp,
-    currentScore: dateScopedLatestScore,
-    bestScore,
-    bestScoreRate: bestScoreRank.rate,
-    currentScoreRate: latestScoreRank.rate,
-    bestScoreLabel: bestScoreRank.display,
-    currentScoreLabel: latestScoreRank.display,
-    scoreRank: bestScoreRank.label,
-    scoreFilterRank: bestScoreRank.label === "MAX" ? "AAA" : bestScoreRank.label,
-  };
-}
-
-function shouldUseRecordScopedCatalog(filters) {
-  return filters.axisMode === "date";
-}
-
-function createRecordScopedCatalogItem(songState, record) {
-  const recordLamp = LAMP_OPTIONS.includes(record?.lamp) ? record.lamp : "NO PLAY";
-  const recordScoreRank = getScoreRankInfo(record.score, songState);
-  const fullBestScore = songState.history.reduce((best, historyRecord) => (
-    historyRecord.score === null || historyRecord.score === undefined ? best : Math.max(best, historyRecord.score)
-  ), Number.NEGATIVE_INFINITY);
-  const bestScore = Number.isFinite(fullBestScore) ? fullBestScore : null;
-  const bestScoreRank = getScoreRankInfo(bestScore, songState);
-
-  return {
-    ...songState,
-    catalogItemKey: `record:${record.id}`,
-    isRecordScopedCard: true,
-    latestDate: getRecordPlayDate(record),
-    latestTimestamp: normalizeRecordTimestamp(record.timestamp, record.date),
-    latestLamp: recordLamp,
-    bestLamp: recordLamp,
-    currentBp: Number.isFinite(record.bp) ? record.bp : null,
-    bestScore,
-    bestScoreRate: bestScoreRank.rate,
-    bestScoreLabel: bestScoreRank.display,
-    scoreRank: bestScoreRank.label,
-    scoreFilterRank: bestScoreRank.label === "MAX" ? "AAA" : bestScoreRank.label,
-    cardScoreFilterRank: recordScoreRank.label === "MAX" ? "AAA" : recordScoreRank.label,
-    currentScore: Number.isFinite(record.score) ? record.score : null,
-    currentScoreRate: recordScoreRank.rate,
-    currentScoreLabel: recordScoreRank.display,
-  };
-}
-
-function matchesRecordScopedResultFilter(entry, filters) {
-  const activeSummaryFilterMode = getEffectiveSummaryDisplayMode(filters);
-
-  if (activeSummaryFilterMode === "score") {
-    const scoreRanks = filters.scoreRanks ?? SCORE_RANK_OPTIONS;
-    const scoreFilterRank = entry.cardScoreFilterRank === "※" ? "F" : entry.cardScoreFilterRank;
-    return scoreRanks.includes(scoreFilterRank);
-  }
-
-  return filters.lamps.includes(entry.bestLamp);
-}
-
-function createDifficultyCatalogEntries(difficultyTable) {
-  const chartMap = new Map();
-
-  difficultyTable.entries.forEach((entry) => {
-    const chartKey = `${entry.title}|${entry.textageid || ""}`;
-    const isProposal = entry.level && entry.splv === "新規提案";
-
-    if (!chartMap.has(chartKey)) {
-      chartMap.set(chartKey, { ...entry, isProposed: isProposal });
-    } else {
-      const existing = chartMap.get(chartKey);
-      if (isProposal && !existing.isProposed) {
-        chartMap.set(chartKey, {
-          ...entry,
-          splv: existing.splv && existing.splv !== "新規提案" ? existing.splv : entry.splv,
-          isProposed: true,
-        });
-      } else if (!isProposal && existing.isProposed) {
-        if (entry.splv && entry.splv !== "新規提案") {
-          existing.splv = entry.splv;
-        }
-      }
-    }
-  });
-
-  return [...chartMap.values()].map((entry, index) => {
-    const scratch = entry.scratch === null || entry.scratch === undefined || entry.scratch === ""
-      ? null
-      : Number(entry.scratch);
-
-    return {
-    id: `difficulty:${entry.title}:${entry.textageid || "none"}:${entry.splv || "none"}:${entry.level || "none"}:${index}`,
-    title: entry.title,
-    level: entry.level,
-    levelValue: parseOptionalNumber(entry.level),
-    splv: entry.splv,
-    splvValue: parseOptionalNumber(entry.splv),
-    katate: entry.katate,
-    katateValue: parseOptionalNumber(entry.katate),
-    version: normalizeVersionValue(entry.ver),
-    versionOrder: getVersionOrderValue(entry.ver),
-    bpm: entry.bpm,
-    bpmValue: parseBpmSortValue(entry.bpm),
-    recommend: entry.recommend,
-    inf: entry.inf,
-    infAvailable: entry.inf === "○",
-    acdelete: Boolean(entry.acdelete),
-    notes: Number(entry.notes) || 0,
-    scratch: Number.isFinite(scratch) ? scratch : null,
-    textageid: entry.textageid,
-    isProposed: entry.isProposed ?? false,
-    chartType: entry.splv || entry.level ? "difficulty" : "difficulty-raw",
-    initialLamp: "NO PLAY",
-    initialBestBp: null,
-    };
-  });
-}
-
-function buildSummary(allSongStates, bandSongStates, targetSongStates, axisMode, displayMode = "clear") {
-  const isScoreMode = displayMode === "score";
-  const countsFactory = isScoreMode ? createScoreRankCounts : createLampCounts;
-  const countKey = isScoreMode ? "scoreFilterRank" : "bestLamp";
-  const lampCounts = countsFactory();
-
-  targetSongStates.forEach((song) => {
-    const summaryKey = isScoreMode ? normalizeScoreRankForSummary(song[countKey]) : song[countKey];
-    if (isScoreMode && !SCORE_RANK_SUMMARY_OPTIONS.includes(summaryKey)) {
-      return;
-    }
-
-    lampCounts[summaryKey] += 1;
-  });
-
-  const bandMap = new Map();
-
-  function getBandValue(song) {
-    if (axisMode === "splv") {
-      return song.splvValue;
-    }
-
-    if (axisMode === "katate") {
-      return song.katateValue;
-    }
-
-    if (axisMode === "version") {
-      return song.versionOrder;
-    }
-
-    if (axisMode === "bpm") {
-      const bucketValue = getBpmBucketValue(song.bpmValue);
-      return bucketValue ? getBpmBucketOrderValue(bucketValue) : null;
-    }
-
-    return song.levelValue;
-  }
-
-  function formatBandLabel(value) {
-    if (axisMode === "version") {
-      return value === null ? "-" : getVersionBandLabel(VERSION_ORDER_VALUES[value] ?? "");
-    }
-
-    if (axisMode === "bpm") {
-      return value === null ? "-" : getBpmBucketLabel(BPM_BUCKETS[value]?.value ?? "");
-    }
-
-    if (value === null) {
-      return "☆-";
-    }
-
-    if (axisMode === "level" || axisMode === "date") {
-      return `☆${Number(value).toFixed(2)}`;
-    }
-
-    if (axisMode === "katate" && Number(value) === 13) {
-      return "☆12-10";
-    }
-
-    if (axisMode === "katate") {
-      return `☆${Number(value).toFixed(1).replace(".", "-")}`;
-    }
-
-    return `☆${String(value)}`;
-  }
-
-  if (axisMode === "version") {
-    VERSION_ORDER_VALUES.forEach((version, index) => {
-      bandMap.set(String(index), {
-        key: String(index),
-        value: index,
-        label: getVersionBandLabel(version),
-        total: 0,
-        lampCounts: countsFactory(),
-      });
-    });
-  }
-
-  if (axisMode === "bpm") {
-    BPM_BUCKETS.forEach((bucket, index) => {
-      bandMap.set(String(index), {
-        key: String(index),
-        value: index,
-        label: bucket.label,
-        total: 0,
-        lampCounts: countsFactory(),
-      });
-    });
-  }
-
-  allSongStates.forEach((song) => {
-    const value = getBandValue(song);
-    const key = value === null ? "null" : String(value);
-    if (!bandMap.has(key)) {
-      bandMap.set(key, {
-        key,
-        value,
-        label: formatBandLabel(value),
-        total: 0,
-        lampCounts: countsFactory(),
-      });
-    }
-  });
-
-  bandSongStates.forEach((song) => {
-    const summaryKey = isScoreMode ? normalizeScoreRankForSummary(song[countKey]) : song[countKey];
-    if (isScoreMode && !SCORE_RANK_SUMMARY_OPTIONS.includes(summaryKey)) {
-      return;
-    }
-
-    const value = getBandValue(song);
-    const key = value === null ? "null" : String(value);
-    const band = bandMap.get(key);
-    band.total += 1;
-    band.lampCounts[summaryKey] += 1;
-  });
-
-  const bands = [...bandMap.values()].sort((a, b) => {
-    if (a.value === null && b.value === null) {
-      return 0;
-    }
-    if (a.value === null) {
-      return 1;
-    }
-    if (b.value === null) {
-      return -1;
-    }
-    return a.value - b.value;
-  });
-
-  return {
-    axisMode,
-    bandTotalSongs: isScoreMode
-      ? bandSongStates.filter((song) => SCORE_RANK_SUMMARY_OPTIONS.includes(normalizeScoreRankForSummary(song[countKey]))).length
-      : bandSongStates.length,
-    totalSongs: isScoreMode
-      ? targetSongStates.filter((song) => SCORE_RANK_SUMMARY_OPTIONS.includes(normalizeScoreRankForSummary(song[countKey]))).length
-      : targetSongStates.length,
-    lampCounts,
-    displayMode: isScoreMode ? "score" : "clear",
-    bands,
-  };
-}
-
-function createLampCounts() {
-  return LAMP_OPTIONS.reduce((counts, lamp) => {
-    counts[lamp] = 0;
-    return counts;
-  }, {});
-}
-
-function createScoreRankCounts() {
-  return SCORE_RANK_SUMMARY_OPTIONS.reduce((counts, rank) => {
-    counts[rank] = 0;
-    return counts;
-  }, {});
-}
-
-function normalizeScoreRankForSummary(scoreRank) {
-  return scoreRank === "※" ? "F" : scoreRank;
-}
-
-function formatDateBandLabel(date) {
-  const [, month, day] = String(date ?? "").split("-").map(Number);
-  return `${month}/${day}`;
-}
-
-function getDateSummaryRange(filters) {
-  const { dateStart, dateEnd } = normalizeDateRange(filters.dateStart, filters.dateEnd);
-
-  if (filters.dateSelectionMode === "single") {
-    const dateSingle = normalizeDateValue(filters.dateSingle) || todayIso();
-    return { start: dateSingle, end: dateSingle, sliceMode: "all", limit: null };
-  }
-
-  if (dateStart && dateEnd) {
-    return { start: dateStart, end: dateEnd, sliceMode: "all", limit: null };
-  }
-
-  if (dateStart) {
-    return { start: dateStart, end: "", sliceMode: "all", limit: null };
-  }
-
-  if (dateEnd) {
-    return { start: "", end: dateEnd, sliceMode: "all", limit: null };
-  }
-
-  return { start: "", end: "", sliceMode: "all", limit: null };
-}
-
-function getDateSummarySingleTargetDates(records, visibleTitles, dateSingle) {
-  const selectedDate = normalizeDateValue(dateSingle) || todayIso();
-  const historyDates = [...new Set(records
-    .filter((record) => visibleTitles.has(record.title))
-    .map((record) => getRecordPlayDate(record))
-    .filter(Boolean))]
-    .sort((a, b) => a.localeCompare(b));
-
-  const beforeDates = historyDates.filter((date) => date < selectedDate).slice(-7);
-  const afterDates = historyDates.filter((date) => date > selectedDate).slice(0, 7);
-  return new Set([...beforeDates, selectedDate, ...afterDates]);
-}
-
-function buildDateSummary(records, baseSongs, countSongs, filters) {
-  const visibleTitles = new Set(baseSongs.map((song) => song.title));
-  const countTitles = new Set(countSongs.map((song) => song.title));
-  const baseSongByTitle = new Map(baseSongs.map((song) => [song.title, song]));
-  const countSongByTitle = new Map(countSongs.map((song) => [song.title, song]));
-  const isScoreMode = filters.displayMode === "score";
-  const countsFactory = isScoreMode ? createScoreRankCounts : createLampCounts;
-  const { start, end, sliceMode, limit } = getDateSummaryRange(filters);
-  const singleTargetDates = filters.dateSelectionMode === "single"
-    ? getDateSummarySingleTargetDates(records, visibleTitles, filters.dateSingle)
-    : null;
-  const bandMap = new Map();
-  const getRecordSummaryKey = (record, song) => {
-    if (isScoreMode) {
-      const scoreRank = getScoreRankInfo(record.score, song).label;
-      return normalizeScoreRankForSummary(scoreRank === "MAX" ? "AAA" : scoreRank);
-    }
-
-    return LAMP_OPTIONS.includes(record.lamp) ? record.lamp : "NO PLAY";
-  };
-
-  const targetDates = new Set();
-  records.forEach((record) => {
-    if (!visibleTitles.has(record.title)) return;
-    const playDate = getRecordPlayDate(record);
-    if (singleTargetDates) {
-      if (!singleTargetDates.has(playDate)) return;
-    } else {
-      if (start && playDate < start) return;
-      if (end && playDate > end) return;
-    }
-    targetDates.add(playDate);
-  });
-
-  [...targetDates].sort((a, b) => a.localeCompare(b)).forEach((playDate) => {
-    const band = {
-      key: playDate,
-      value: playDate,
-      label: formatDateBandLabel(playDate),
-      total: 0,
-      lampCounts: countsFactory(),
-      baseTotal: 0,
-      baseLampCounts: countsFactory(),
-    };
-
-    records.forEach((record) => {
-      if (record.title === undefined || !visibleTitles.has(record.title) || getRecordPlayDate(record) !== playDate) {
-        return;
-      }
-
-      const song = baseSongByTitle.get(record.title);
-      const countKey = getRecordSummaryKey(record, song);
-      if (isScoreMode && !SCORE_RANK_SUMMARY_OPTIONS.includes(countKey)) {
-        return;
-      }
-
-      band.baseTotal += 1;
-      band.baseLampCounts[countKey] += 1;
-
-      const selectedScoreRanks = filters.scoreRanks ?? SCORE_RANK_OPTIONS;
-      const isSelected = isScoreMode
-        ? selectedScoreRanks.includes(countKey) || (countKey === "F" && selectedScoreRanks.includes("※"))
-        : filters.lamps.includes(countKey);
-
-      if (isSelected) {
-        band.total += 1;
-        band.lampCounts[countKey] += 1;
-      }
-    });
-
-    if (band.baseTotal > 0) {
-      bandMap.set(playDate, band);
-    }
-  });
-
-  let bands = [...bandMap.values()].sort((a, b) => String(a.value).localeCompare(String(b.value)));
-  if (limit !== null) {
-    bands = sliceMode === "first" ? bands.slice(0, limit) : bands.slice(-limit);
-  }
-
-  const lampCounts = countsFactory();
-  records.forEach((record) => {
-    if (!countTitles.has(record.title)) {
-      return;
-    }
-    const playDate = getRecordPlayDate(record);
-    if (filters.dateSelectionMode === "single") {
-      const dateSingle = normalizeDateValue(filters.dateSingle) || todayIso();
-      if (playDate !== dateSingle) {
-        return;
-      }
-    } else {
-      if (start && playDate < start) return;
-      if (end && playDate > end) return;
-    }
-
-    const song = countSongByTitle.get(record.title);
-    const summaryKey = getRecordSummaryKey(record, song);
-    if (isScoreMode && !SCORE_RANK_SUMMARY_OPTIONS.includes(summaryKey)) {
-      return;
-    }
-
-    lampCounts[summaryKey] += 1;
-  });
-
-  return {
-    axisMode: "date",
-    bandTotalSongs: bands.reduce((total, band) => total + band.total, 0),
-    totalSongs: Object.values(lampCounts).reduce((total, count) => total + count, 0),
-    totalLabel: "総記録数",
-    totalUnit: "件",
-    emptyMessage: "該当する履歴がありません。",
-    lampCounts,
-    displayMode: isScoreMode ? "score" : "clear",
-    bands,
-  };
-}
-
-function getDefaultDateRangeFromRecords(records) {
-  const dates = [...new Set(records.map((record) => getRecordPlayDate(record)).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  const recentDates = dates.slice(-14);
-  const today = todayIso();
-
-  if (recentDates.length === 0) {
-    return { dateStart: today, dateEnd: today };
-  }
-
-  return {
-    dateStart: recentDates[0],
-    dateEnd: recentDates[recentDates.length - 1],
-  };
-}
-
-function getDateFilterReturnBase(previousFilters, titleFilterBase) {
-  const isValidReturnAxis = (axisMode) => !isTextAxisMode(axisMode) && axisMode !== "date";
-
-  if (isTextAxisMode(previousFilters.axisMode) && titleFilterBase && isValidReturnAxis(titleFilterBase.axisMode)) {
-    return { ...titleFilterBase };
-  }
-
-  if (!isValidReturnAxis(previousFilters.axisMode)) {
-    return {
-      ...previousFilters,
-      axisMode: "splv",
-      axisValue: "",
-      titleQuery: "",
-      dateSelectionMode: "single",
-      dateSingle: todayIso(),
-      dateStart: "",
-      dateEnd: "",
-    };
-  }
-
-  return { ...previousFilters };
-}
-
-function compareLevelValue(a, b) {
-  return (a.levelValue ?? Number.POSITIVE_INFINITY) - (b.levelValue ?? Number.POSITIVE_INFINITY);
-}
-
-function compareSplvValue(a, b) {
-  return (a.splvValue ?? Number.POSITIVE_INFINITY) - (b.splvValue ?? Number.POSITIVE_INFINITY);
-}
-
-function compareTitleValue(a, b) {
-  return compareTitlesWithSuffixOrder(a.title, b.title);
-}
-
-function createRandomSortValue(key, seed) {
-  const source = `${key}:${seed}`;
-  let hash = 2166136261;
-  for (let index = 0; index < source.length; index += 1) {
-    hash ^= source.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-function compareKatateValue(a, b) {
-  return (a.katateValue ?? Number.POSITIVE_INFINITY) - (b.katateValue ?? Number.POSITIVE_INFINITY);
-}
-
-function compareLatestTimestampValue(a, b) {
-  if (a.latestTimestamp === null && b.latestTimestamp === null) {
-    return 0;
-  }
-  if (a.latestTimestamp === null) {
-    return -1;
-  }
-  if (b.latestTimestamp === null) {
-    return 1;
-  }
-  return String(a.latestTimestamp).localeCompare(String(b.latestTimestamp));
-}
-
-function compareNullablePrimaryValues(aValue, bValue, compareValues, sortDirection) {
-  const aNull = aValue === null || aValue === undefined || aValue === "";
-  const bNull = bValue === null || bValue === undefined || bValue === "";
-
-  if (aNull && bNull) {
-    return 0;
-  }
-
-  if (aNull) {
-    return 1;
-  }
-
-  if (bNull) {
-    return -1;
-  }
-
-  const compared = compareValues(aValue, bValue);
-  return sortDirection === "desc" ? -compared : compared;
-}
-
-function compareScoreRatePrimaryValues(a, b, valueKey, sortDirection) {
-  const getScoreSortGroup = (entry) => {
-    if (!entry.entryCount) {
-      return 2;
-    }
-
-    return entry.scoreFilterRank === "※" ? 1 : 0;
-  };
-  const aGroup = getScoreSortGroup(a);
-  const bGroup = getScoreSortGroup(b);
-
-  if (aGroup !== bGroup) {
-    return aGroup - bGroup;
-  }
-
-  const aUnknownScore = a.scoreFilterRank === "※";
-  const bUnknownScore = b.scoreFilterRank === "※";
-
-  if (aUnknownScore && bUnknownScore) {
-    return 0;
-  }
-
-  if (aUnknownScore) {
-    return 1;
-  }
-
-  if (bUnknownScore) {
-    return -1;
-  }
-
-  return compareNullablePrimaryValues(a[valueKey], b[valueKey], (aValue, bValue) => aValue - bValue, sortDirection);
-}
-
-function comparePrimarySortValue(
-  a,
-  b,
-  sortMode,
-  sortDirection,
-  randomSeed = 1,
-  chartDifficultySortHead = CHART_DIFFICULTY_OPTIONS[0],
-  recommendSortHead = RECOMMEND_SORT_OPTIONS[0],
-  chartDifficultySortDirection = null,
-) {
-  if (sortMode === "random") {
-    return createRandomSortValue(getCatalogItemKey(a), randomSeed) - createRandomSortValue(getCatalogItemKey(b), randomSeed);
-  }
-
-  if (sortMode === "title") {
-    return compareTitlePrimaryValue(a.title, b.title, sortDirection);
-  }
-
-  if (sortMode === "level") {
-    return compareNullablePrimaryValues(a.levelValue, b.levelValue, (aValue, bValue) => aValue - bValue, sortDirection);
-  }
-
-  if (sortMode === "splv") {
-    return compareNullablePrimaryValues(a.splvValue, b.splvValue, (aValue, bValue) => aValue - bValue, sortDirection);
-  }
-
-  if (sortMode === "katate") {
-    return compareNullablePrimaryValues(a.katateValue, b.katateValue, (aValue, bValue) => aValue - bValue, sortDirection);
-  }
-
-  if (sortMode === "version") {
-    return compareNullablePrimaryValues(a.versionOrder, b.versionOrder, (aValue, bValue) => aValue - bValue, sortDirection);
-  }
-
-  if (sortMode === "chartDifficulty") {
-    const effectiveDirection = chartDifficultySortDirection ?? "asc";
-    return compareChartDifficultyPrimaryValue(a.title, b.title, effectiveDirection, chartDifficultySortHead);
-  }
-
-  if (sortMode === "bpm") {
-    return compareNullablePrimaryValues(a.bpmValue, b.bpmValue, (aValue, bValue) => aValue - bValue, sortDirection);
-  }
-
-  if (sortMode === "latest") {
-    const compared = compareLatestTimestampValue(a, b);
-    return sortDirection === "desc" ? -compared : compared;
-  }
-
-  if (sortMode === "entryCount") {
-    const compared = a.entryCount - b.entryCount;
-    return sortDirection === "desc" ? -compared : compared;
-  }  
-
-  if (sortMode === "clear") {
-    const compared = getLampRank(a.bestLamp) - getLampRank(b.bestLamp);
-    return sortDirection === "desc" ? -compared : compared;
-  }
-
-  if (sortMode === "bestBp") {
-    return compareNullablePrimaryValues(a.bestBp, b.bestBp, (aValue, bValue) => aValue - bValue, sortDirection);
-  }
-
-  if (sortMode === "latestBp") {
-    return compareNullablePrimaryValues(a.currentBp, b.currentBp, (aValue, bValue) => aValue - bValue, sortDirection);
-  }
-
-  if (sortMode === "bestScore") {
-    return compareScoreRatePrimaryValues(a, b, "bestScoreRate", sortDirection);
-  }
-
-  if (sortMode === "latestScore") {
-    return compareScoreRatePrimaryValues(a, b, "currentScoreRate", sortDirection);
-  }
-
-  if (sortMode === "recommend") {
-    return compareRecommendPrimaryValue(a.recommend, b.recommend, "asc", recommendSortHead);
-  }
-
-  if (sortMode === "memo") {
-    return compareNullablePrimaryValues(a.note, b.note, (aValue, bValue) => String(aValue).localeCompare(String(bValue), "ja"), sortDirection);
-  }
-
-  return compareNullablePrimaryValues(a.levelValue, b.levelValue, (aValue, bValue) => aValue - bValue, sortDirection);
-}
-
-function getRotatedChartDifficultyOrder(sortDirection, head) {
-  const baseOrder = sortDirection === "desc"
-    ? [...CHART_DIFFICULTY_OPTIONS].reverse()
-    : [...CHART_DIFFICULTY_OPTIONS];
-  const normalizedHead = normalizeChartDifficultySortHead(head);
-  const headIndex = baseOrder.indexOf(normalizedHead);
-  if (headIndex < 0) {
-    return baseOrder;
-  }
-
-  return [...baseOrder.slice(headIndex), ...baseOrder.slice(0, headIndex)];
-}
-
-function getChartDifficultySortRank(title, sortDirection, head) {
-  const suffix = splitTitleAndSuffix(title).suffix;
-  const order = getRotatedChartDifficultyOrder(sortDirection, head);
-  const rank = order.indexOf(suffix);
-  return rank >= 0 ? rank : Number.POSITIVE_INFINITY;
-}
-
-function compareChartDifficultyPrimaryValue(aTitle, bTitle, sortDirection, head) {
-  return getChartDifficultySortRank(aTitle, sortDirection, head) - getChartDifficultySortRank(bTitle, sortDirection, head);
-}
-
-function getRotatedRecommendOrder(sortDirection, head) {
-  const baseOrder = sortDirection === "desc"
-    ? [...RECOMMEND_SORT_OPTIONS].reverse()
-    : [...RECOMMEND_SORT_OPTIONS];
-  const normalizedHead = normalizeRecommendSortHead(head);
-  const headIndex = baseOrder.indexOf(normalizedHead);
-  if (headIndex < 0) {
-    return baseOrder;
-  }
-
-  return [...baseOrder.slice(headIndex), ...baseOrder.slice(0, headIndex)];
-}
-
-function compareRecommendPrimaryValue(aRecommend, bRecommend, sortDirection, head) {
-  const order = getRotatedRecommendOrder(sortDirection, head);
-  const aRank = order.indexOf(String(aRecommend ?? ""));
-  const bRank = order.indexOf(String(bRecommend ?? ""));
-  return (aRank >= 0 ? aRank : Number.POSITIVE_INFINITY)
-    - (bRank >= 0 ? bRank : Number.POSITIVE_INFINITY);
-}
-
-function compareTitlePrimaryValue(aTitle, bTitle, sortDirection) {
-  const aNull = aTitle === null || aTitle === undefined || aTitle === "";
-  const bNull = bTitle === null || bTitle === undefined || bTitle === "";
-
-  if (aNull && bNull) {
-    return 0;
-  }
-
-  if (aNull) {
-    return 1;
-  }
-
-  if (bNull) {
-    return -1;
-  }
-
-  const a = splitTitleAndSuffix(aTitle);
-  const b = splitTitleAndSuffix(bTitle);
-  const baseCompare = a.baseTitle.localeCompare(b.baseTitle, "ja");
-  if (baseCompare !== 0) {
-    return sortDirection === "desc" ? -baseCompare : baseCompare;
-  }
-
-  if (a.suffixRank !== b.suffixRank) {
-    return a.suffixRank - b.suffixRank;
-  }
-
-  return String(aTitle).localeCompare(String(bTitle), "ja");
-}
-
-function compareFilterAxisTieBreak(a, b, axisMode) {
-  if (axisMode === "level") {
-    return compareLevelValue(a, b);
-  }
-
-  if (axisMode === "splv") {
-    return compareSplvValue(a, b);
-  }
-
-  if (axisMode === "katate") {
-    return compareKatateValue(a, b);
-  }
-
-  if (axisMode === "version") {
-    return compareNullablePrimaryValues(a.versionOrder, b.versionOrder, (aValue, bValue) => aValue - bValue, "asc");
-  }
-
-  if (axisMode === "title") {
-    return compareTitleValue(a, b);
-  }
-
-  if (axisMode === "memo") {
-    return compareNullablePrimaryValues(a.note, b.note, (aValue, bValue) => String(aValue).localeCompare(String(bValue), "ja"), "asc");
-  }
-
-  if (axisMode === "date") {
-    return compareNullablePrimaryValues(a.latestDate, b.latestDate, (aValue, bValue) => compareIsoDates(aValue, bValue), "asc");
-  }
-
-  return 0;
-}
-
-function hasPrimarySortDifference(
-  songs,
-  sortMode,
-  chartDifficultySortHead = CHART_DIFFICULTY_OPTIONS[0],
-  recommendSortHead = RECOMMEND_SORT_OPTIONS[0],
-) {
-  if (songs.length <= 1) {
-    return false;
-  }
-
-  const first = songs[0];
-
-  return songs.some((song) => (
-    comparePrimarySortValue(first, song, sortMode, "asc", 1, chartDifficultySortHead, recommendSortHead) !== 0
-  ));
-}
-
-function applySortDirectionFallbackIfNoPrimaryEffect(
-  songs,
-  sortMode,
-  sortDirection,
-  chartDifficultySortHead = CHART_DIFFICULTY_OPTIONS[0],
-  recommendSortHead = RECOMMEND_SORT_OPTIONS[0],
-) {
-  if (sortMode === "chartDifficulty" || sortMode === "recommend") {
-    return songs;
-  }
-
-  if (sortDirection !== "desc" || songs.length <= 1) {
-    return songs;
-  }
-
-  if (hasPrimarySortDifference(songs, sortMode, chartDifficultySortHead, recommendSortHead)) {
-    return songs;
-  }
-
-  return [...songs].reverse();
-}
-
-function compareCatalogSongs(
-  a,
-  b,
-  sortMode,
-  sortDirection,
-  axisMode,
-  randomSeed = 1,
-  chartDifficultySortHead = CHART_DIFFICULTY_OPTIONS[0],
-  recommendSortHead = RECOMMEND_SORT_OPTIONS[0],
-  chartDifficultySortDirection = null,
-) {
-  return comparePrimarySortValue(a, b, sortMode, sortDirection, randomSeed, chartDifficultySortHead, recommendSortHead, chartDifficultySortDirection)
-    || compareFilterAxisTieBreak(a, b, axisMode)
-    || compareSplvValue(a, b)
-    || compareTitleValue(a, b);
-}
-
 export function createStore() {
-  const listeners = new Set();
+  const events = createEventBus();
   const state = {
     songs: [],
     records: [],
@@ -1933,7 +211,7 @@ export function createStore() {
       axisValue: "",
       titleQuery: "",
       dateSelectionMode: "single",
-      dateSingle: todayIso(),
+      dateSingle: getCurrentRecordDate(),
       dateStart: "",
       dateEnd: "",
       axisRangeModeByAxis: normalizeAxisRangeModeByAxis(),
@@ -1974,33 +252,11 @@ export function createStore() {
   let deleteAnchorTimer = null;
 
   function emit(snapshot = getSnapshot()) {
-    listeners.forEach((listener) => listener(snapshot));
+    events.emit(snapshot);
   }
 
   function persist() {
-    saveStoredState({
-      songs: state.songs,
-      records: state.records,
-      difficultyTable: state.difficultyTable,
-      difficultyTableUpdatedAt: state.difficultyTableUpdatedAt,
-      songNotes: state.songNotes,
-      titleFilterBase: state.titleFilterBase,
-      dateFilterBase: state.dateFilterBase,
-      dateRangeMemory: state.dateRangeMemory,
-      titleSortBase: state.titleSortBase,
-      textQueryMemory: state.textQueryMemory,
-      axisMemory: state.axisMemory,
-      sortModeMemory: state.sortModeMemory,
-      chartDifficultySortHead: state.chartDifficultySortHead,
-      chartDifficultySortHeadMemory: state.chartDifficultySortHeadMemory,
-      recommendSortHead: state.recommendSortHead,
-      recommendSortHeadMemory: state.recommendSortHeadMemory,
-      filters: state.filters,
-      sortMode: state.sortMode,
-      sortDirection: state.sortDirection,
-      randomSeed: state.randomSeed,
-      catalogViewMode: state.catalogViewMode,
-    });
+    saveAppData(createPersistedState(state));
   }
 
   function clearDeleteAnchor() {
@@ -2173,176 +429,9 @@ export function createStore() {
     return state.difficultyTable?.entries?.length ? createDifficultyCatalogEntries(state.difficultyTable) : [];
   }
 
-  function matchesFiltersFor(entry, filters) {
-    if (filters.axisMode === "title") {
-      return matchesSearchText(entry.title, filters.titleQuery) && matchesTextAxisFixedFilters(entry, filters);
-    }
-    
-    if (filters.axisMode === "memo") {
-      const query = filters.titleQuery.trim().toLocaleLowerCase("ja");
-      const note = String(entry.note ?? "").toLocaleLowerCase("ja");
-      return (!query || note.includes(query)) && matchesTextAxisFixedFilters(entry, filters);
-    }
-
-    if (filters.axisMode === "date") {
-      const dateScopedHistory = filterHistoryByDateRange(entry.history, filters);
-
-      if (dateScopedHistory.length === 0) {
-        return false;
-      }
-    }
-
-    if (filters.axisMode === "katate" && entry.katateValue === null) {
-      return false;
-    }
-
-    if (filters.axisMode !== "date") {
-      if (entry.levelValue === null) {
-        if (filters.includeUnrated === "rated") {
-          return false;
-        }
-      } else if (filters.includeUnrated === "unrated") {
-        return false;
-      }
-    }
-
-    if (isNumericAxisMode(filters.axisMode) && isAxisRangeModeEnabled(filters)) {
-      const range = filters.axisRanges?.[filters.axisMode] ?? { start: "", end: "" };
-      const start = parseOptionalNumber(range.start);
-      const end = parseOptionalNumber(range.end);
-      const entryValue = filters.axisMode === "level"
-        ? entry.levelValue
-        : filters.axisMode === "splv"
-          ? entry.splvValue
-          : filters.axisMode === "katate"
-            ? entry.katateValue
-            : filters.axisMode === "bpm"
-              ? getBpmBucketOrderValue(getBpmBucketValue(entry.bpmValue))
-              : entry.versionOrder;
-
-      if (filters.axisMode === "version") {
-        const startOrder = getVersionOrderValue(range.start);
-        const endOrder = getVersionOrderValue(range.end);
-        if (startOrder !== null && endOrder !== null && (entryValue === null || entryValue < startOrder || entryValue > endOrder)) {
-          return false;
-        }
-      } else if (filters.axisMode === "bpm") {
-        const startOrder = getBpmRangePointOrderValue(range.start);
-        const endOrder = getBpmRangePointOrderValue(range.end);
-        if (startOrder !== null && endOrder !== null && (entryValue === null || entryValue < startOrder || entryValue >= endOrder)) {
-          return false;
-        }
-      } else if (start !== null && end !== null && (entryValue === null || entryValue < start || entryValue > end)) {
-          return false;
-      }
-    } else if (filters.axisMode === "level") {
-      const selectedLevel = parseOptionalNumber(filters.axisValue);
-      if (selectedLevel !== null && entry.levelValue !== selectedLevel) {
-        return false;
-      }
-    } else if (filters.axisMode === "splv") {
-      const selectedSplv = parseOptionalNumber(filters.axisValue);
-      if (selectedSplv !== null && entry.splvValue !== selectedSplv) {
-        return false;
-      }
-    } else if (filters.axisMode === "katate") {
-      const selectedKatate = parseOptionalNumber(filters.axisValue);
-      if (selectedKatate !== null && entry.katateValue !== selectedKatate) {
-        return false;
-      }
-    } else if (filters.axisMode === "bpm") {
-      const selectedBpmBucket = String(filters.axisValue ?? "");
-      if (selectedBpmBucket && getBpmBucketValue(entry.bpmValue) !== selectedBpmBucket) {
-        return false;
-      }
-    } else if (filters.axisMode === "version") {
-      const selectedVersion = normalizeVersionValue(filters.axisValue);
-      if (selectedVersion && entry.version !== selectedVersion) {
-        return false;
-      }
-    }
-
-    const activeChartDifficulties = filters.axisMode === "version"
-      ? (filters.chartDifficulties ?? CHART_DIFFICULTY_OPTIONS)
-        .filter((option) => (filters.versionChartDifficulties ?? CHART_DIFFICULTY_OPTIONS).includes(option))
-      : (filters.chartDifficulties ?? CHART_DIFFICULTY_OPTIONS);
-    if (filters.axisMode !== "date" && !activeChartDifficulties.includes(splitTitleAndSuffix(entry.title).suffix)) {
-      return false;
-    }
-
-    const activeSummaryFilterMode = getEffectiveSummaryDisplayMode(filters);
-    const scoreRanks = filters.scoreRanks ?? SCORE_RANK_OPTIONS;
-    const scoreFilterRank = entry.scoreFilterRank === "※" ? "F" : entry.scoreFilterRank;
-    if (activeSummaryFilterMode === "score" && !scoreRanks.includes(scoreFilterRank)) {
-      return false;
-    }
-
-    if (activeSummaryFilterMode !== "score" && !filters.lamps.includes(entry.bestLamp)) {
-      return false;
-    }
-
-    if (filters.axisMode !== "date" && filters.inf === "yes" && !entry.infAvailable) {
-      return false;
-    }
-
-    if (filters.axisMode !== "date" && filters.inf === "no" && entry.infAvailable) {
-      return false;
-    }
-
-    if (filters.axisMode !== "date" && filters.acdelete === "yes" && !entry.acdelete) {
-      return false;
-    }
-
-    if (filters.axisMode !== "date" && filters.acdelete === "no" && entry.acdelete) {
-      return false;
-    }
-
-    return true;
-  }
-
-  function matchesTextAxisFixedFilters(entry, filters) {
-    const chartDifficulties = filters.chartDifficulties ?? CHART_DIFFICULTY_OPTIONS;
-    if (!chartDifficulties.includes(splitTitleAndSuffix(entry.title).suffix)) {
-      return false;
-    }
-
-    if (filters.inf === "yes" && !entry.infAvailable) {
-      return false;
-    }
-
-    if (filters.inf === "no" && entry.infAvailable) {
-      return false;
-    }
-
-    if (filters.acdelete === "yes" && !entry.acdelete) {
-      return false;
-    }
-
-    if (filters.acdelete === "no" && entry.acdelete) {
-      return false;
-    }
-
-    return true;
-  }
-
-  function compareVisibleSongPriority(a, b) {
-    if (state.filters.axisMode !== "title") {
-      return 0;
-    }
-
-    const query = state.filters.titleQuery.trim();
-    if (!query) {
-      return 0;
-    }
-
-    const aRank = getSearchTextMatchRank(a.title, query);
-    const bRank = getSearchTextMatchRank(b.title, query);
-    return bRank - aRank;
-  }
-
   async function initialize() {
     try {
-      const stored = loadStoredState();
+      const stored = loadAppData();
 
       if (stored) {
         const needsTimestampMigration = needsRecordTimestampMigration(stored.records);
@@ -2381,7 +470,7 @@ export function createStore() {
 
         if (state.difficultyTable?.entries?.length) {
           try {
-            const { table, changedCount } = await attachKatateToDifficultyTable(state.difficultyTable);
+            const { table, changedCount } = await hydrateDifficultyTableWithKatate(state.difficultyTable);
             state.difficultyTable = table;
             if (changedCount > 0) {
               didMutateStoredData = true;
@@ -2449,7 +538,7 @@ export function createStore() {
     let nextDateStart = nextFilters.dateStart ?? state.filters.dateStart;
     let nextDateEnd = nextFilters.dateEnd ?? state.filters.dateEnd;
     let nextDateSelectionMode = normalizeDateSelectionMode(nextFilters.dateSelectionMode ?? state.filters.dateSelectionMode);
-    let nextDateSingle = nextFilters.dateSingle ?? state.filters.dateSingle ?? todayIso();
+    let nextDateSingle = nextFilters.dateSingle ?? state.filters.dateSingle ?? getCurrentRecordDate();
 
     if (axisModeChanged) {
       const wasTextAxisMode = isTextAxisMode(previousFilters.axisMode);
@@ -2481,7 +570,7 @@ export function createStore() {
         nextDateSelectionMode = normalizeDateSelectionMode(nextFilters.dateSelectionMode ?? state.filters.dateSelectionMode);
         nextDateSingle = typeof nextFilters.dateSingle === "string"
           ? nextFilters.dateSingle
-          : state.filters.dateSingle || todayIso();
+          : state.filters.dateSingle || getCurrentRecordDate();
         nextDateStart = typeof nextFilters.dateStart === "string"
           ? nextFilters.dateStart
           : rememberedDateRange.dateStart || defaultDateRange.dateStart;
@@ -2523,7 +612,7 @@ export function createStore() {
       axisValue: typeof nextAxisValue === "string" ? nextAxisValue : "",
       titleQuery: typeof nextTitleQuery === "string" ? nextTitleQuery : "",
       dateSelectionMode: nextDateSelectionMode,
-      dateSingle: normalizeDateValue(nextDateSingle) || todayIso(),
+      dateSingle: normalizeDateValue(nextDateSingle) || getCurrentRecordDate(),
       dateStart: nextDateRange.dateStart,
       dateEnd: nextDateRange.dateEnd,
       axisRangeModeByAxis: nextFilters.axisRangeModeByAxis
@@ -2659,7 +748,7 @@ export function createStore() {
         axisValue: "",
         titleQuery: "",
         dateSelectionMode: "single",
-        dateSingle: todayIso(),
+        dateSingle: getCurrentRecordDate(),
         dateStart: "",
         dateEnd: "",
       };
@@ -2863,8 +952,8 @@ export function createStore() {
       delete state.songNotes[selectedEntry.title];
     }
 
-    const date = todayIso();
-    const timestamp = formatLocalDateTime();
+    const date = getCurrentRecordDate();
+    const timestamp = getCurrentRecordTimestamp();
     const chartSuffix = selectedEntry.title.match(/\(([BNHAL])\)$/)?.[0] ?? "";
     state.records.push({
       id: createRecordId(),
@@ -2930,19 +1019,18 @@ export function createStore() {
   }
 
   function getExportJson() {
-    const difficultyTextageIndex = buildDifficultyTextageIndex(state.difficultyTable);
-    const recordIndex = buildRecordIndex(state.records);
-    const exportEntries = [...recordIndex.entries()].map(([title, history]) => {
+    return exportRecordsAsDbrJson(state.records, state.difficultyTable, (title, history) => {
       const bestLamp = history.reduce((best, record) => pickBetterLamp(best, record.lamp), "NO PLAY");
       const bestBpValues = history.map((record) => record.bp).filter((value) => Number.isFinite(value));
       const bestBp = bestBpValues.length > 0 ? Math.min(...bestBpValues) : Number.POSITIVE_INFINITY;
       const bestScore = history.reduce((best, record) => (
         record.score === null || record.score === undefined ? best : Math.max(best, record.score)
       ), Number.NEGATIVE_INFINITY);
+      const difficultyTextageIndex = buildDifficultyTextageIndex(state.difficultyTable);
       const storedTextageKey = history.find((record) => record.textageKey)?.textageKey ?? "";
       const textageid = difficultyTextageIndex.get(title) ?? "";
       const suffix = title.slice(-3);
-      const latestTextageKey = textageid && /^\([A-Z]\)$/.test(suffix) ? `${textageid}${suffix}` : storedTextageKey;
+      const latestTextageKey = textageid && /^\([A-Z]\)$/.test(suffix) ? textageid + suffix : storedTextageKey;
 
       return {
         title,
@@ -2954,12 +1042,10 @@ export function createStore() {
         textageKey: latestTextageKey,
       };
     });
-
-    return exportDbrJson(exportEntries);
   }
 
   function getExportCsv() {
-    return exportVerticalCsv(state.records, state.songNotes, state.difficultyTable);
+    return exportRecordsAsCsv(state.records, state.songNotes, state.difficultyTable);
   }
 
   function normalizeJsonImportLamp(value) {
@@ -3020,7 +1106,7 @@ export function createStore() {
       || normalizeJsonImportNumber(record?.score) !== null;
   }
 
-  function importJsonData(payload, referenceDate = todayIso()) {
+  function importJsonData(payload, referenceDate = getCurrentRecordDate()) {
     const catalogEntryByTitle = new Map(getCatalogEntries().map((entry) => [entry.title, entry]));
 
     const comparableRecordIndex = buildRecordIndex(
@@ -3029,7 +1115,7 @@ export function createStore() {
 
     const fullRecordIndex = buildRecordIndex(state.records);
 
-    const importedRecords = importDbrJson(payload, referenceDate)
+    const importedRecords = parseDbrJsonRecords(payload, referenceDate)
       .map((record) => {
         const selectedEntry = catalogEntryByTitle.get(record.title);
 
@@ -3088,17 +1174,8 @@ export function createStore() {
     return { count: importedRecords.length, totalCount: state.records.length };
   }
 
-  function createTextageKeyFromCatalogEntry(entry) {
-    if (!entry?.textageid || !entry?.title) {
-      return "";
-    }
-
-    const suffix = entry.title.slice(-3);
-    return /^\([A-Z]\)$/.test(suffix) ? `${entry.textageid}${suffix}` : "";
-  }
-
   function importCsvData(text) {
-    const { records, songNotes } = importVerticalCsv(text, state.difficultyTable);
+    const { records, songNotes } = parseCsvRecords(text, state.difficultyTable);
     const catalogEntryByTitle = new Map(getCatalogEntries().map((entry) => [entry.title, entry]));
     const importedRecords = records.map((record) => {
       const selectedEntry = catalogEntryByTitle.get(record.title);
@@ -3142,8 +1219,8 @@ export function createStore() {
 
     state.records = [...preservedRecords, ...importedRecords].sort(sortRecords);
     if (state.difficultyTable) {
-      migrateRecordTitlesByTextageKey(state.difficultyTable);
-      updateTextageKeyFromDifficultyTable(state.difficultyTable);
+      state.records = migrateRecordTitlesByTextageKey(state.records, state.difficultyTable);
+      state.records = updateTextageKeyFromDifficultyTable(state.records, state.difficultyTable);
       state.records = state.records.sort(sortRecords);
     }    
     state.songNotes = {
@@ -3171,50 +1248,16 @@ export function createStore() {
   }
 
   async function importDifficultyTable() {
-    const result = await fetchDifficultyTable();
+    const result = await loadRemoteDifficultyTable();
     state.difficultyTable = result;
     state.difficultyTableUpdatedAt = nowTimestamp();
-    migrateRecordTitlesByTextageKey(result);
-    updateTextageKeyFromDifficultyTable(result);
+    state.records = migrateRecordTitlesByTextageKey(state.records, result);
+    state.records = updateTextageKeyFromDifficultyTable(state.records, result);
     invalidateCatalogVisibleOrder();
     state.statusMessage = `難易度表を読み込みました。${result.titleCount}曲 / ${result.entries.length}譜面`;
     persist();
     emit();
     return result;
-  }
-
-  function migrateRecordTitlesByTextageKey(difficultyTable) {
-    const textageKeyToNewTitle = new Map();
-    difficultyTable.entries.forEach((entry) => {
-      if (!entry.textageid || !entry.title) return;
-      const suffix = entry.title.slice(-3);
-      if (!/^\([A-Z]\)$/.test(suffix)) return;
-      const key = `${entry.textageid}${suffix}`;
-      textageKeyToNewTitle.set(key, entry.title);
-    });
-
-    state.records = state.records.map((record) => {
-      if (!record.textageKey) return record;
-      const newTitle = textageKeyToNewTitle.get(record.textageKey);
-      if (!newTitle || newTitle === record.title) return record;
-      return { ...record, title: newTitle };
-    });
-  }
-
-  function updateTextageKeyFromDifficultyTable(difficultyTable) {
-    const titleToTextageKey = new Map();
-    difficultyTable.entries.forEach((entry) => {
-      if (!entry.textageid || !entry.title) return;
-      const suffix = entry.title.slice(-3);
-      if (!/^\([A-Z]\)$/.test(suffix)) return;
-      titleToTextageKey.set(entry.title, `${entry.textageid}${suffix}`);
-    });
-
-    state.records = state.records.map((record) => {
-      const newTextageKey = titleToTextageKey.get(record.title);
-      if (!newTextageKey || newTextageKey === record.textageKey) return record;
-      return { ...record, textageKey: newTextageKey };
-    });
   }
 
   function getCatalogSnapshot() {
@@ -3261,7 +1304,7 @@ export function createStore() {
       const songOrder = new Map(songStates.map((song, index) => [song.title, index]));
 
       filteredVisibleSongs.sort((a, b) => {
-        const priority = compareVisibleSongPriority(a, b);
+        const priority = compareVisibleSongPriorityForFilters(a, b, state.filters);
         if (priority !== 0) {
           return priority;
         }
@@ -3273,7 +1316,7 @@ export function createStore() {
     if (shouldUseRecordScopedCatalog(state.filters)) {
       filteredVisibleSongs = filteredVisibleSongs
         .flatMap((entry) => filterHistoryByDateRange(entry.history, state.filters)
-          .map((record) => createRecordScopedCatalogItem(entry, record)))
+          .map((record) => createRecordScopedCatalogItem(entry, record, getScoreRankInfo)))
         .filter((entry) => matchesRecordScopedResultFilter(entry, state.filters))
         .sort((a, b) => compareCatalogSongs(
           a,
@@ -3352,37 +1395,18 @@ export function createStore() {
       ? songStates.filter((entry) => entry.katateValue !== null)
       : songStates;
 
-    const summarySongs = summaryBandBaseSongs.filter((entry) => matchesFiltersFor(entry, summaryScopeFilters));
-
-    const summaryCountFilters = {
-      ...summaryGraphFilters,
-      lamps: [...LAMP_OPTIONS],
-      scoreRanks: [...SCORE_RANK_OPTIONS],
-    };
-
-    const summaryCountSongs = songStates.filter((entry) => matchesFiltersFor(entry, summaryCountFilters));
-
-    const dateSummaryBaseFilters = summaryGraphFilters.axisMode === "date"
-      ? {
-          ...summaryCountFilters,
-          axisMode: "splv",
-          axisValue: "",
-          axisRangeModeByAxis: normalizeAxisRangeModeByAxis(AXIS_RANGE_MODE_DISABLED),
-          inf: "all",
-          acdelete: "all",
-          includeUnrated: "all",
-          chartDifficulties: [...CHART_DIFFICULTY_OPTIONS],
-          versionChartDifficulties: [...CHART_DIFFICULTY_OPTIONS],
-        }
-      : null;
-    const dateSummaryBaseSongs = dateSummaryBaseFilters
-      ? summaryBandBaseSongs.filter((entry) => matchesFiltersFor(entry, dateSummaryBaseFilters))
-      : summaryCountSongs;
-
-    const summary = summaryGraphFilters.axisMode === "date"
-      ? buildDateSummary(playDateAdjustedRecords, dateSummaryBaseSongs, summaryCountSongs, summaryGraphFilters)
-      : buildSummary(summaryBandBaseSongs, summarySongs, summaryCountSongs, summaryGraphFilters.axisMode, summaryGraphFilters.displayMode);
-
+    const summary = buildCatalogSummary({
+      playDateAdjustedRecords,
+      songStates,
+      summaryBandBaseSongs,
+      summaryGraphFilters,
+      summaryScopeFilters,
+      summaryCountFilters: {
+        ...summaryGraphFilters,
+        lamps: [...LAMP_OPTIONS],
+        scoreRanks: [...SCORE_RANK_OPTIONS],
+      },
+    });
     const totalPages = Math.max(1, Math.ceil(visibleSongs.length / PAGE_SIZE));
     const currentPage = Math.max(1, Math.min(state.currentPage, totalPages));
     const pageStart = (currentPage - 1) * PAGE_SIZE;
@@ -3471,9 +1495,6 @@ export function createStore() {
     importJsonData,
     clearAllRecords,
     getSnapshot,
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
+    subscribe: events.subscribe,
   };
 }

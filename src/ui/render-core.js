@@ -30,6 +30,22 @@ const {
   syncEntryBpInputMode: syncEntryBpInputModeComponent,
   syncRecordFormWithSnapshot,
 } = await import(`./components/record-form.js${MODULE_VERSION}`);
+const {
+  clearHeroButtonStates,
+  collectRendererNodes,
+  initializeRendererNodeClasses,
+  lockHeroButtonsExcept,
+  setButtonLoading,
+  syncDifficultyImportButton,
+  syncThemeToggleButton,
+  updateSliderFill,
+} = await import(`./dom.js${MODULE_VERSION}`);
+const {
+  bindFloatingScroll,
+  bindNumberInputWheelGuard,
+  bindThemeToggle,
+  bindWindowResize,
+} = await import(`./events.js${MODULE_VERSION}`);
 
 const LAMP_COLORS = {
   "NO PLAY": "var(--lamp-no-play)",
@@ -291,16 +307,6 @@ function isDifficultyTableStale(updatedAt) {
   return Number.isFinite(updatedAt) && Date.now() - updatedAt >= DIFFICULTY_TABLE_STALE_MS;
 }
 
-function syncDifficultyImportButton(button, shouldHighlight) {
-  if (!(button instanceof HTMLButtonElement)) {
-    return;
-  }
-
-  button.classList.toggle("button-primary", shouldHighlight);
-  button.classList.toggle("button-secondary", !shouldHighlight);
-  button.classList.toggle("is-difficulty-stale", shouldHighlight);
-}
-
 function getCurrentTheme() {
   return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 }
@@ -345,48 +351,6 @@ function applyTheme(theme) {
   }
 }
 
-function syncThemeToggleButton(button, theme) {
-  if (!(button instanceof HTMLButtonElement)) {
-    return;
-  }
-
-  const isDark = theme === "dark";
-  button.innerHTML = isDark
-    ? `
-      <span class="theme-toggle-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          <circle cx="12" cy="12" r="4.25" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
-          <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8">
-            <path d="M12 1.75v2.2"></path>
-            <path d="M12 20.05v2.2"></path>
-            <path d="M4.95 4.95l1.56 1.56"></path>
-            <path d="M17.49 17.49l1.56 1.56"></path>
-            <path d="M1.75 12h2.2"></path>
-            <path d="M20.05 12h2.2"></path>
-            <path d="M4.95 19.05l1.56-1.56"></path>
-            <path d="M17.49 6.51l1.56-1.56"></path>
-          </g>
-        </svg>
-      </span>
-    `
-    : `
-      <span class="theme-toggle-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-          <path
-            d="M21 12.8A8.9 8.9 0 1 1 11.2 3a7.2 7.2 0 0 0 9.8 9.8Z"
-            fill="none"
-            stroke="currentColor"
-            stroke-linejoin="round"
-            stroke-width="1.8"
-          ></path>
-        </svg>
-      </span>
-    `;
-  button.setAttribute("aria-label", isDark ? "ライトテーマに切り替え" : "ダークテーマに切り替え");
-  button.setAttribute("aria-pressed", String(isDark));
-  button.title = isDark ? "ライトテーマに切り替え" : "ダークテーマに切り替え";
-}
-
 function parseKatateFilterValue(rawValue) {
   const normalized = String(rawValue ?? "").trim();
   if (!normalized) {
@@ -411,19 +375,6 @@ function formatKatateFilterValue(value) {
   }
 
   return numericValue.toFixed(1).replace(".", "-");
-}
-
-function updateSliderFill(slider) {
-  if (!(slider instanceof HTMLInputElement) || slider.type !== "range") {
-    return;
-  }
-
-  const min = Number(slider.min || 0);
-  const max = Number(slider.max || 100);
-  const value = Number(slider.value || min);
-  const ratio = max <= min ? 0 : (value - min) / (max - min);
-  const percent = Math.max(0, Math.min(ratio, 1)) * 100;
-  slider.style.setProperty("--slider-fill", `${percent}%`);
 }
 
 function extractBalancedJsonObject(text) {
@@ -1498,63 +1449,6 @@ export function createRenderer(store) {
     nodes.floatingAxisFilter.style.width = "";
   }
 
-  function setButtonLoading(button, isLoading, loadingText = "読み込み中...") {
-    if (!button) {
-      return;
-    }
-
-    if (isLoading) {
-      if (!("originalText" in button.dataset)) {
-        button.dataset.originalText = button.textContent ?? "";
-      }
-
-      button.disabled = true;
-      button.textContent = loadingText;
-      button.classList.add("is-busy");
-      return;
-    }
-
-    button.disabled = false;
-    button.textContent = button.dataset.originalText || button.textContent;
-    button.classList.remove("is-busy");
-    delete button.dataset.originalText;
-  }
-
-  function lockHeroButtonsExcept(activeButton) {
-    document.querySelectorAll(".hero-actions .button").forEach((button) => {
-      if (button.id === "theme-toggle-button") {
-        return;
-      }
-
-      if (button === activeButton) {
-        return;
-      }
-
-      if ("disabled" in button) {
-        button.disabled = true;
-      }
-
-      button.classList.add("is-locked");
-      button.setAttribute("aria-disabled", "true");
-    });
-  }
-
-  function clearHeroButtonStates() {
-    document.querySelectorAll(".hero-actions .button").forEach((button) => {
-      if ("disabled" in button) {
-        button.disabled = false;
-      }
-
-      button.classList.remove("is-busy", "is-locked");
-      button.removeAttribute("aria-disabled");
-
-      if ("originalText" in button.dataset) {
-        button.textContent = button.dataset.originalText;
-        delete button.dataset.originalText;
-      }
-    });
-  }
-
   function getCatalogNumberShortcutIndex(event) {
     if (event.key >= "1" && event.key <= "9") {
       return Number(event.key) - 1;
@@ -1586,51 +1480,9 @@ export function createRenderer(store) {
     return true;
   }  
 
-  const nodes = {
-    summaryPanel: document.querySelector("#summary-cards")?.closest(".panel"),
-    summary: document.querySelector("#summary-cards"),
-    summaryDisplayField: document.querySelector("#summary-display-field"),
-    summaryDisplaySelect: document.querySelector("#summary-display-select"),
-    summaryFiltersToggle: document.querySelector("#summary-filters-toggle"),
-    summaryFiltersPanel: document.querySelector("#summary-filters-panel"),
-    floatingAxisFilter: document.querySelector("#floating-axis-filter"),
-    catalogPanel: document.querySelector("#song-catalog")?.closest(".panel"),
-    catalogSortSelect: document.querySelector("#catalog-sort-select"),
-    catalogViewToggle: document.querySelector("#catalog-view-toggle"),
-    catalogMeta: document.querySelector("#catalog-meta"),
-    catalogPaginationTop: document.querySelector("#catalog-pagination-top"),
-    catalogPaginationBottom: document.querySelector("#catalog-pagination-bottom"),
-    catalog: document.querySelector("#song-catalog"),
-    analyticsPanel: document.querySelector(".analytics-panel"),
-    themeToggleButton: document.querySelector("#theme-toggle-button"),
-    selectedSong: document.querySelector("#selected-song"),
-    recordForm: document.querySelector("#record-form"),
-    recordSubmitButton: document.querySelector("#record-submit-button"),
-    recordDate: document.querySelector("#record-date"),
-    lampInput: document.querySelector("#lamp-input"),
-    bpInput: document.querySelector("#bp-input"),
-    badInput: document.querySelector("#bad-input"),
-    poorInput: document.querySelector("#poor-input"),
-    bpInputPanels: document.querySelectorAll("[data-bp-input-panel]"),
-    bpInputModeButtons: document.querySelectorAll("[data-bp-input-mode]"),
-    scoreInput: document.querySelector("#score-input"),
-    memoInput: document.querySelector("#memo-input"),
-    backToCardButton: document.querySelector("#back-to-card-button"),
-    difficultyImportButton: document.querySelector("#difficulty-import-button"),
-    csvImportButton: document.querySelector("#csv-import-button"),
-    importButton: document.querySelector("#import-button"),
-    exportButton: document.querySelector("#export-button"),
-    csvExportButton: document.querySelector("#csv-export-button"),
-    clearAllButton: document.querySelector("#clear-all-button"),
-    csvImportFileInput: document.querySelector("#csv-import-file-input"),
-    importFileInput: document.querySelector("#import-file-input"),
-    chart: document.querySelector("#chart-container"),
-    scoreChart: document.querySelector("#score-chart-container"),
-    history: document.querySelector("#history-body"),
-    sendJsonToIrTestButton: document.querySelector("#send-json-to-ir-test"),
-  };
+  const nodes = collectRendererNodes();
 
-  nodes.summaryPanel?.classList.add("summary-overview-panel");
+  initializeRendererNodeClasses(nodes);
 
   function syncEntryBpInputMode() {
     syncEntryBpInputModeComponent({
@@ -1692,14 +1544,14 @@ export function createRenderer(store) {
     requestAnimationFrame(syncFloatingDockSideFromViewport);
   });
 
-  nodes.themeToggleButton?.addEventListener("click", () => {
-    const nextTheme = getCurrentTheme() === "dark" ? "light" : "dark";
-    applyTheme(nextTheme);
-    persistTheme(nextTheme);
-    syncThemeToggleButton(nodes.themeToggleButton, nextTheme);
+  bindThemeToggle(nodes.themeToggleButton, {
+    getCurrentTheme,
+    applyTheme,
+    persistTheme,
+    syncThemeToggleButton,
   });
 
-  window.addEventListener("resize", () => {
+  bindWindowResize(window, () => {
     if (activeChartResizeFrame !== null) {
       window.cancelAnimationFrame(activeChartResizeFrame);
     }
@@ -1712,16 +1564,9 @@ export function createRenderer(store) {
     });
   });
 
-  document.addEventListener("wheel", (event) => {
-    const input = event.target.closest('input[type="number"]');
-    if (!input || document.activeElement !== input) {
-      return;
-    }
+  bindNumberInputWheelGuard(document);
 
-    event.preventDefault();
-  }, { passive: false });
-
-  window.addEventListener("scroll", () => {
+  bindFloatingScroll(window, () => {
     if (!isProgrammaticScroll) {
       lastUserScrollAt = performance.now();
     }
@@ -1767,7 +1612,7 @@ export function createRenderer(store) {
 
     lastScrollY = currentScrollY;
     syncFloatingDockClass();
-  }, { passive: true });
+  });
 
   function readFiltersFromPanel() {
     const panel = nodes.summaryFiltersPanel;
