@@ -98,6 +98,7 @@ const SUMMARY_LAMP_SWIPE_SOLO_THRESHOLD = 40;
 const DIFFICULTY_TABLE_STALE_MS = 12 * 60 * 60 * 1000;
 const THEME_STORAGE_KEY = "dbr-theme";
 const ENTRY_BP_INPUT_MODE_STORAGE_KEY = "dbr-entry-bp-input-mode";
+const SUMMARY_FILTERS_OPEN_STORAGE_KEY = "dbr-summary-filters-open";
 const ENTRY_BP_INPUT_MODES = new Set(["bp", "split"]);
 const AXIS_OPTIONS = [
   { value: "splv", label: "SPLv." },
@@ -309,6 +310,30 @@ function loadEntryBpInputMode() {
 function persistEntryBpInputMode(mode) {
   try {
     window.localStorage.setItem(ENTRY_BP_INPUT_MODE_STORAGE_KEY, mode);
+  } catch {
+    // ignore
+  }
+}
+
+function loadSummaryFiltersOpen() {
+  try {
+    const value = window.localStorage.getItem(SUMMARY_FILTERS_OPEN_STORAGE_KEY);
+    if (value === "false") {
+      return false;
+    }
+    if (value === "true") {
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+
+  return true;
+}
+
+function persistSummaryFiltersOpen(open) {
+  try {
+    window.localStorage.setItem(SUMMARY_FILTERS_OPEN_STORAGE_KEY, open ? "true" : "false");
   } catch {
     // ignore
   }
@@ -1860,7 +1885,7 @@ export function createRenderer(store) {
   let dateFilterKeyboardEditUntil = 0;
   let entryBpInputMode = loadEntryBpInputMode();
   let entryFormDirty = false;
-  let summaryFiltersOpen = true;
+  let summaryFiltersOpen = loadSummaryFiltersOpen();
   let floatingFilterOpen = false;
   let floatingAxisPreviewMode = null;
   let floatingAxisPreviewValue = null;
@@ -3281,6 +3306,7 @@ export function createRenderer(store) {
 
   nodes.summaryFiltersToggle?.addEventListener("click", () => {
     summaryFiltersOpen = !summaryFiltersOpen;
+    persistSummaryFiltersOpen(summaryFiltersOpen);
     renderFilterDraftPanel();
   });
 
