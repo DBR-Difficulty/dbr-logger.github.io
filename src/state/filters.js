@@ -805,6 +805,58 @@ export function getDefaultDateRangeFromRecords(records) {
   };
 }
 
+export function deriveFilterBounds(songStates) {
+  const levelValues = songStates.map((song) => song.levelValue).filter((value) => value !== null);
+  const splvValues = songStates.map((song) => song.splvValue).filter((value) => value !== null);
+  const katateValues = songStates.map((song) => song.katateValue).filter((value) => value !== null);
+  const versionValues = new Set(songStates.map((song) => String(song.version ?? "")).filter((value) => VERSION_LABELS.has(value)));
+  const uniqueLevelValues = [...new Set(levelValues)].sort((a, b) => a - b);
+  const uniqueSplvValues = [...new Set(splvValues)].sort((a, b) => a - b);
+  const uniqueKatateValues = [...new Set(katateValues)].sort((a, b) => a - b);
+  const uniqueVersionValues = VERSION_ORDER_VALUES.filter((value) => versionValues.has(value));
+
+  return {
+    level: {
+      min: levelValues.length ? Math.min(...levelValues) : 0,
+      max: levelValues.length ? Math.max(...levelValues) : 15,
+      step: 0.01,
+      values: uniqueLevelValues,
+    },
+    splv: {
+      min: splvValues.length ? Math.min(...splvValues) : 1,
+      max: splvValues.length ? Math.max(...splvValues) : 12,
+      step: 1,
+      values: uniqueSplvValues,
+    },
+    katate: {
+      min: katateValues.length ? Math.min(...katateValues) : 11,
+      max: katateValues.length ? Math.max(...katateValues) : 13,
+      step: 0.1,
+      values: uniqueKatateValues,
+    },
+    version: {
+      min: 0,
+      max: uniqueVersionValues.length ? uniqueVersionValues.length - 1 : 0,
+      step: 1,
+      values: uniqueVersionValues,
+    },
+  };
+}
+
+export function deriveHistoryDates(songStates) {
+  const dates = new Set();
+  songStates.forEach((song) => {
+    song.history?.forEach((record) => {
+      const playDate = record?.playDate || record?.date;
+      if (playDate) {
+        dates.add(playDate);
+      }
+    });
+  });
+
+  return [...dates].sort((a, b) => a.localeCompare(b));
+}
+
 export function getDateFilterReturnBase(previousFilters, titleFilterBase) {
   const isValidReturnAxis = (axisMode) => !isTextAxisMode(axisMode) && axisMode !== "date";
 

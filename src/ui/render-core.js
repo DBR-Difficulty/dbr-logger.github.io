@@ -2,12 +2,9 @@ const MODULE_VERSION = new URL(import.meta.url).search;
 
 const { LAMP_OPTIONS } = await import(`../constants.js${MODULE_VERSION}`);
 const { renderBpChart, renderScoreChart } = await import(`./chart.js${MODULE_VERSION}`);
-const { formatIsoDate, todayIso } = await import(`../utils/date.js${MODULE_VERSION}`);
+const { todayIso } = await import(`../utils/date.js${MODULE_VERSION}`);
 const { renderProposalButton } = await import(`./proposal.js${MODULE_VERSION}`);
-const { escapeHtml } = await import(`../utils/html.js${MODULE_VERSION}`);
 const {
-  deriveFilterBounds: deriveFilterBoundsComponent,
-  deriveHistoryDates: deriveHistoryDatesComponent,
   renderCatalogSortOptions: renderCatalogSortOptionsComponent,
   renderDifficultyFilters: renderDifficultyFiltersComponent,
   renderFloatingAxisFilter: renderFloatingAxisFilterComponent,
@@ -41,753 +38,80 @@ const {
   updateSliderFill,
 } = await import(`./dom.js${MODULE_VERSION}`);
 const {
+  RECOMMEND_OPTIONS,
+  RECOMMEND_SORT_VALUES,
+  CHART_DIFFICULTY_OPTIONS,
+  CHART_SUFFIX_ORDER,
+  DISPLAY_MODE_OPTIONS,
+  SUMMARY_DISPLAY_MODE_OPTIONS,
+  CATALOG_SORT_OPTIONS,
+  SCORE_RANK_OPTIONS,
+  SCORE_RANK_SUMMARY_OPTIONS,
+  SCORE_RANK_FILTER_OPTIONS,
+  SONG_DATA_FILTER_OPTIONS,
+  SUMMARY_LAMP_DOUBLE_CLICK_MS,
+  SUMMARY_LAMP_SWIPE_SOLO_THRESHOLD,
+  THEME_STORAGE_KEY,
+  ENTRY_BP_INPUT_MODE_STORAGE_KEY,
+  SUMMARY_FILTERS_OPEN_STORAGE_KEY,
+  ENTRY_BP_INPUT_MODES,
+  AXIS_OPTIONS,
+  AXIS_SHORTCUT_KEYS,
+  HIDDEN_FLOATING_CLEAR_AXES,
+  BPM_BUCKETS,
+  BPM_RANGE_POINTS,
+  VERSION_ORDER_VALUES,
+  VERSION_LABELS,
+  isTextAxisMode,
+  isDateAxisMode,
+  isNumericAxisMode,
+  isRangeOnlyAxisMode,
+  getSongDataFilterOption,
+  isDifficultyTableStale,
+  getCurrentTheme,
+  persistTheme,
+  loadSummaryFiltersOpen,
+  persistSummaryFiltersOpen,
+  applyTheme,
+  parseKatateFilterValue,
+  formatKatateFilterValue,
+  getAxisLabel,
+  getAxisValues,
+  getAxisRangeValues,
+  getBpmBucket,
+  getBpmRangePoint,
+  formatBpmRangeValue,
+  formatAxisValue,
+  formatDateRangeValue,
+  isAxisRangeMode,
+  hasAxisCandidate,
+  getAxisRangeMinGap,
+  getNormalizedAxisRange,
+  formatAxisRangeValue,
+  getHistoryDateNeighbor,
+  summarizeAxisFilter,
+  getEffectiveSummaryDisplayMode,
+  findClosestValue,
+  findValueIndex,
+  getSummaryBandLampColor,
+  getCardBandColor,
+  getScoreRankSummaryLabel,
+  bindCatalogHandlers,
+  bindSummaryHandlers,
+  bindFloatingOutsideHandlers,
+  bindFloatingFilterHandlers,
   bindFloatingScroll,
+  bindIoHandlers,
+  bindKeyboardHandlers,
   bindNumberInputWheelGuard,
+  bindRecordFormHandlers,
+  bindSummaryFilterPanelHandlers,
   bindThemeToggle,
   bindWindowResize,
-} = await import(`./events.js${MODULE_VERSION}`);
-
-const LAMP_COLORS = {
-  "NO PLAY": "var(--lamp-no-play)",
-  FAILED: "var(--lamp-failed)",
-  ASSIST: "var(--lamp-assist)",
-  EASY: "var(--lamp-easy)",
-  CLEAR: "var(--lamp-clear)",
-  HARD: "var(--lamp-hard)",
-  EXH: "var(--lamp-exh)",
-  FC: "var(--lamp-fc)",
-};
-const getLampColor = (lamp) => LAMP_COLORS[lamp] ?? "transparent";
-const SCORE_RANK_COLORS = {
-  MAX: "var(--lamp-fc)",
-  AAA: "var(--lamp-fc)",
-  AA: "var(--lamp-exh)",
-  A: "var(--lamp-hard)",
-  B: "var(--lamp-clear)",
-  C: "var(--lamp-easy)",
-  D: "var(--lamp-assist)",
-  E: "var(--lamp-failed)",
-  F: "var(--lamp-no-play)",
-  "※": "var(--lamp-no-play)",
-};
-const getScoreRankColor = (rank) => SCORE_RANK_COLORS[rank] ?? "transparent";
-const getSummaryBandLampColor = (lamp) => getLampColor(lamp);
-const getCardLampColor = (lamp) => lamp === "NO PLAY" ? "transparent" : getLampColor(lamp);
-const getCardBandColor = (song, summaryDisplayMode = "clear") => (
-  summaryDisplayMode === "score"
-    ? (song?.currentScore === null || song?.currentScore === undefined ? "transparent" : getScoreRankColor(song?.cardScoreFilterRank ?? song?.scoreFilterRank ?? "F"))
-    : getCardLampColor(song?.bestLamp)
-);
-const getScoreRankSummaryLabel = (rank) => rank === "F" ? "F/※" : rank;
-const RECOMMEND_OPTIONS = [
-  { value: "", label: "－" },
-  { value: "△", label: "△" },
-  { value: "○", label: "○" },
-  { value: "◎", label: "◎" },
-  { value: "☆", label: "☆" },
-];
-const RECOMMEND_SORT_VALUES = ["☆", "◎", "○", "△", ""];
-const CHART_DIFFICULTY_OPTIONS = ["B", "N", "H", "A", "L"];
-const CHART_SUFFIX_ORDER = new Map([
-  ["B", 0],
-  ["N", 1],
-  ["H", 2],
-  ["A", 3],
-  ["L", 4],
-]);
-const DISPLAY_MODE_OPTIONS = [
-  { value: "all", label: "すべて" },
-  { value: "clear", label: "クリア" },
-  { value: "score", label: "スコア" },
-];
-const SUMMARY_DISPLAY_MODE_OPTIONS = [
-  { value: "clear", label: "クリア" },
-  { value: "score", label: "スコア" },
-];
-const CATALOG_SORT_OPTIONS = [
-  { value: "title", label: "曲名", modes: ["all", "clear", "score"] },
-  { value: "version", label: "バージョン", modes: ["all", "clear", "score"] },
-  { value: "chartDifficulty", label: "譜面難易度", modes: ["all", "clear", "score"] },
-  { value: "splv", label: "SPLv.", modes: ["all", "clear", "score"] },
-  { value: "level", label: "DBRLv.", modes: ["all", "clear", "score"] },
-  { value: "katate", label: "片手Lv.", modes: ["all", "clear", "score"] },
-  { value: "bpm", label: "BPM", modes: ["all", "clear", "score"] },
-  { value: "recommend", label: "おすすめ度", modes: ["all", "clear", "score"] },
-  { value: "clear", label: "クリアランプ", modes: ["all", "clear", "score"] },
-  { value: "bestBp", label: "最小BP", modes: ["all", "clear"] },
-  { value: "latestBp", label: "最新BP", modes: ["all", "clear"] },
-  { value: "bestScore", label: "最高スコア", modes: ["all", "score"] },
-  { value: "latestScore", label: "最新スコア", modes: ["all", "score"] },
-  { value: "latest", label: "最終プレー", modes: ["all", "clear", "score"] },
-  { value: "entryCount", label: "プレー回数", modes: ["all", "clear", "score"] },
-  { value: "memo", label: "メモ", modes: ["all", "clear", "score"] },
-  { value: "random", label: "ランダム", modes: ["all", "clear", "score"] },
-];
-const SCORE_RANK_OPTIONS = ["AAA", "AA", "A", "B", "C", "D", "E", "F", "※"];
-const SCORE_RANK_SUMMARY_OPTIONS = ["AAA", "AA", "A", "B", "C", "D", "E", "F"];
-const SCORE_RANK_FILTER_OPTIONS = ["F", "E", "D", "C", "B", "A", "AA", "AAA"];
-const SONG_DATA_FILTER_OPTIONS = [
-  { value: "all", label: "すべて", inf: "all", acdelete: "all" },
-  { value: "ac", label: "AC", inf: "all", acdelete: "no" },
-  { value: "infinitas", label: "INFINITAS", inf: "yes", acdelete: "all" },
-  { value: "acOnly", label: "AC限定", inf: "no", acdelete: "no" },
-  { value: "infinitasOnly", label: "INFINITAS限定", inf: "yes", acdelete: "yes" },
-  { value: "csDeleted", label: "CS限定/削除曲のみ", inf: "no", acdelete: "yes" },
-];
-const SUMMARY_LAMP_DOUBLE_CLICK_MS = 220;
-const SUMMARY_LAMP_SWIPE_SOLO_THRESHOLD = 40;
-const DIFFICULTY_TABLE_STALE_MS = 12 * 60 * 60 * 1000;
-const THEME_STORAGE_KEY = "dbr-theme";
-const ENTRY_BP_INPUT_MODE_STORAGE_KEY = "dbr-entry-bp-input-mode";
-const SUMMARY_FILTERS_OPEN_STORAGE_KEY = "dbr-summary-filters-open";
-const ENTRY_BP_INPUT_MODES = new Set(["bp", "split"]);
-const AXIS_OPTIONS = [
-  { value: "splv", label: "SPLv." },
-  { value: "level", label: "DBRLv." },
-  { value: "katate", label: "片手Lv." },
-  { value: "version", label: "バージョン" },
-  { value: "bpm", label: "BPM" },
-  { value: "date", label: "プレー日" },
-  { value: "title", label: "曲名" },
-  { value: "memo", label: "メモ" },
-];
-const AXIS_SHORTCUT_KEYS = {
-  f: "level",
-  w: "splv",
-  e: "katate",
-  v: "version",
-  b: "bpm",
-  r: "date",
-  s: "title",
-  t: "memo",
-};
-const HIDDEN_FLOATING_CLEAR_AXES = new Set(["level", "splv", "katate", "version", "bpm", "date"]);
-const RANGE_ONLY_AXIS_MODES = new Set();
-const BPM_BUCKETS = [
-  { value: "lt120", label: "min-119" },
-  ...Array.from({ length: 10 }, (_, index) => {
-    const bpm = 120 + index * 10;
-    return { value: String(bpm), label: `${bpm}-${bpm + 9}` };
-  }),
-  { value: "220", label: "220-249" },
-  { value: "250", label: "250-max" },
-];
-const BPM_RANGE_POINTS = [
-  { value: "min", startLabel: "min", endLabel: "min" },
-  ...Array.from({ length: 11 }, (_, index) => {
-    const bpm = 120 + index * 10;
-    return { value: String(bpm), startLabel: String(bpm), endLabel: String(bpm - 1) };
-  }),
-  { value: "250", startLabel: "250", endLabel: "249" },
-  { value: "max", startLabel: "max", endLabel: "max" },
-];
-const VERSION_ORDER_VALUES = ["0", "1", "s", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33"];
-const VERSION_LABELS = new Map([
-  ["0", "CS/INFINITAS"],
-  ["1", "1st style"],
-  ["s", "substream"],
-  ["2", "2nd style"],
-  ["3", "3rd style"],
-  ["4", "4th style"],
-  ["5", "5th style"],
-  ["6", "6th style"],
-  ["7", "7th style"],
-  ["8", "8th style"],
-  ["9", "9th style"],
-  ["10", "10th style"],
-  ["11", "RED"],
-  ["12", "HAPPY SKY"],
-  ["13", "DistorteD"],
-  ["14", "GOLD"],
-  ["15", "DJ TROOPERS"],
-  ["16", "EMPRESS"],
-  ["17", "SIRIUS"],
-  ["18", "Resort Anthem"],
-  ["19", "Lincle"],
-  ["20", "tricoro"],
-  ["21", "SPADA"],
-  ["22", "PENDUAL"],
-  ["23", "copula"],
-  ["24", "SINOBUZ"],
-  ["25", "CANNON BALLERS"],
-  ["26", "Rootage"],
-  ["27", "HEROIC VERSE"],
-  ["28", "BISTROVER"],
-  ["29", "CastHour"],
-  ["30", "RESIDENT"],
-  ["31", "EPOLIS"],
-  ["32", "Pinky Crush"],
-  ["33", "Sparkle Shower"],
-]);
-
-// DBR IR送信
-const DBR_IR_IMPORT_TEST_URL = "https://dbr-difficulty.github.io/dbr_ir_from_logger.html";
-const DBR_IR_IMPORT_TEST_ORIGIN = "https://dbr-difficulty.github.io";
-
-function openDbrIrImportPage() {
-  const targetUrl = new URL(DBR_IR_IMPORT_TEST_URL, window.location.href);
-  const targetWindow = window.open(targetUrl.href, "_blank");
-
-  if (!targetWindow) {
-    window.alert("DBR IR受け取りページを開けませんでした。ポップアップブロックを確認してください。");
-    return null;
-  }
-
-  return targetWindow;
-}
-
-function sendJsonToDbrIrPage(targetWindow, jsonText) {
-  if (!targetWindow) {
-    return;
-  }
-
-  let sent = false;
-
-  function sendJson() {
-    if (sent) {
-      return;
-    }
-
-    sent = true;
-
-    targetWindow.postMessage({
-      type: "dbr-ir-import-json",
-      payload: jsonText,
-      filename: "dbr-logger.json",
-    }, DBR_IR_IMPORT_TEST_ORIGIN);
-  }
-
-  function handleReady(event) {
-    if (event.origin !== DBR_IR_IMPORT_TEST_ORIGIN) {
-      return;
-    }
-
-    if (event.source !== targetWindow) {
-      return;
-    }
-
-    if (!event.data || event.data.type !== "dbr-ir-import-ready") {
-      return;
-    }
-
-    window.removeEventListener("message", handleReady);
-    sendJson();
-  }
-
-  window.addEventListener("message", handleReady);
-
-  window.setTimeout(() => {
-    window.removeEventListener("message", handleReady);
-    sendJson();
-  }, 1000);
-}
-
-function isTextAxisMode(axisMode) {
-  return axisMode === "title" || axisMode === "memo";
-}
-
-function isDateAxisMode(axisMode) {
-  return axisMode === "date";
-}
-
-function isNumericAxisMode(axisMode) {
-  return axisMode === "level" || axisMode === "splv" || axisMode === "katate" || axisMode === "version" || axisMode === "bpm";
-}
-
-function isRangeOnlyAxisMode(axisMode) {
-  return RANGE_ONLY_AXIS_MODES.has(axisMode);
-}
-
-function getSongDataFilterOption(value) {
-  return SONG_DATA_FILTER_OPTIONS.find((option) => option.value === value)
-    ?? SONG_DATA_FILTER_OPTIONS[0];
-}
-
-function isDifficultyTableStale(updatedAt) {
-  return Number.isFinite(updatedAt) && Date.now() - updatedAt >= DIFFICULTY_TABLE_STALE_MS;
-}
-
-function getCurrentTheme() {
-  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-}
-
-function persistTheme(theme) {
-  try {
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-  } catch {
-    // ignore
-  }
-}
-
-function loadSummaryFiltersOpen() {
-  try {
-    const value = window.localStorage.getItem(SUMMARY_FILTERS_OPEN_STORAGE_KEY);
-    if (value === "false") {
-      return false;
-    }
-    if (value === "true") {
-      return true;
-    }
-  } catch {
-    // ignore
-  }
-
-  return true;
-}
-
-function persistSummaryFiltersOpen(open) {
-  try {
-    window.localStorage.setItem(SUMMARY_FILTERS_OPEN_STORAGE_KEY, open ? "true" : "false");
-  } catch {
-    // ignore
-  }
-}
-
-function applyTheme(theme) {
-  if (theme === "dark") {
-    document.documentElement.dataset.theme = "dark";
-  } else {
-    delete document.documentElement.dataset.theme;
-  }
-}
-
-function parseKatateFilterValue(rawValue) {
-  const normalized = String(rawValue ?? "").trim();
-  if (!normalized) {
-    return Number.NaN;
-  }
-
-  if (normalized === "12.10") {
-    return 13;
-  }
-
-  return Number(normalized);
-}
-
-function formatKatateFilterValue(value) {
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) {
-    return "";
-  }
-
-  if (numericValue === 13) {
-    return "12-10";
-  }
-
-  return numericValue.toFixed(1).replace(".", "-");
-}
-
-function extractBalancedJsonObject(text) {
-  let depth = 0;
-  let startIndex = -1;
-  let inString = false;
-  let escaping = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-
-    if (inString) {
-      if (escaping) {
-        escaping = false;
-        continue;
-      }
-
-      if (char === "\\") {
-        escaping = true;
-        continue;
-      }
-
-      if (char === '"') {
-        inString = false;
-      }
-      continue;
-    }
-
-    if (char === '"') {
-      inString = true;
-      continue;
-    }
-
-    if (char === "{") {
-      if (depth === 0) {
-        startIndex = index;
-      }
-      depth += 1;
-      continue;
-    }
-
-    if (char === "}") {
-      if (depth === 0) {
-        continue;
-      }
-
-      depth -= 1;
-      if (depth === 0 && startIndex >= 0) {
-        return text.slice(startIndex, index + 1);
-      }
-    }
-  }
-
-  return null;
-}
-
-function findFirstSectionIndex(text) {
-  const sectionPattern = /"?((bp|lamp|score|textageKey))"?\s*:\s*\{/g;
-  let firstIndex = -1;
-
-  for (const match of text.matchAll(sectionPattern)) {
-    if (match.index === undefined) {
-      continue;
-    }
-
-    if (firstIndex === -1 || match.index < firstIndex) {
-      firstIndex = match.index;
-    }
-  }
-
-  return firstIndex;
-}
-
-function parseImportedJsonText(text) {
-  const normalized = String(text ?? "").replace(/^\uFEFF/, "").trim();
-  if (!normalized) {
-    throw new Error("JSONテキストが空です。");
-  }
-
-  try {
-    return JSON.parse(normalized);
-  } catch {}
-
-  const fenceMatch = normalized.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (fenceMatch) {
-    try {
-      return JSON.parse(fenceMatch[1]);
-    } catch {}
-  }
-
-  const objectText = extractBalancedJsonObject(normalized);
-  if (objectText) {
-    try {
-      return JSON.parse(objectText);
-    } catch {}
-  }
-
-  const firstBraceIndex = normalized.indexOf("{");
-  const lastBraceIndex = normalized.lastIndexOf("}");
-  if (firstBraceIndex >= 0 && lastBraceIndex > firstBraceIndex) {
-    try {
-      return JSON.parse(normalized.slice(firstBraceIndex, lastBraceIndex + 1));
-    } catch {}
-  }
-
-  const firstSectionIndex = findFirstSectionIndex(normalized);
-  if (firstSectionIndex >= 0) {
-    const tail = normalized.slice(firstSectionIndex);
-    const tailObject = extractBalancedJsonObject(`{${tail}}`);
-    if (tailObject) {
-      try {
-        return JSON.parse(tailObject);
-      } catch {}
-    }
-
-    const tailLastBraceIndex = tail.lastIndexOf("}");
-    if (tailLastBraceIndex >= 0) {
-      try {
-        return JSON.parse(`{${tail.slice(0, tailLastBraceIndex + 1)}}`);
-      } catch {}
-    }
-  }
-
-  throw new Error("テキスト内から有効なJSON本体を見つけられませんでした。");
-}
-
-function askJsonImportDate() {
-  const defaultDate = todayIso();
-  let promptValue = defaultDate;
-
-  while (true) {
-    const response = window.prompt(
-      "JSONの記録日を入力してください。空欄なら今日として読み込みます。",
-      promptValue,
-    );
-
-    if (response === null) {
-      return null;
-    }
-
-    const normalized = response.trim();
-
-    if (!normalized) {
-      return defaultDate;
-    }
-
-    promptValue = normalized;
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-      window.alert("記録日は YYYY-MM-DD 形式で入力してください。");
-      continue;
-    }
-
-    const parsed = new Date(`${normalized}T00:00:00`);
-
-    if (Number.isNaN(parsed.getTime())) {
-      window.alert("記録日の形式が不正です。");
-      continue;
-    }
-
-    const [year, month, day] = normalized.split("-").map(Number);
-
-    if (
-      parsed.getFullYear() !== year
-      || parsed.getMonth() + 1 !== month
-      || parsed.getDate() !== day
-    ) {
-      window.alert("存在しない日付です。");
-      continue;
-    }
-
-    if (normalized > defaultDate) {
-      window.alert("未来の日付は指定できません。");
-      continue;
-    }
-
-    return normalized;
-  }
-}
-
-function getAxisLabel(axisMode) {
-  return AXIS_OPTIONS.find((option) => option.value === axisMode)?.label ?? "DBRLv.";
-}
-
-function getAxisValues(bounds, axisMode) {
-  if (axisMode === "level") {
-    return bounds.level.values ?? [];
-  }
-
-  if (axisMode === "splv") {
-    return bounds.splv.values ?? [];
-  }
-
-  if (axisMode === "katate") {
-    return bounds.katate.values ?? [];
-  }
-
-  if (axisMode === "version") {
-    return bounds.version.values ?? [];
-  }
-
-  if (axisMode === "bpm") {
-    return BPM_BUCKETS.map((bucket) => bucket.value);
-  }
-
-  return [];
-}
-
-function getAxisRangeValues(bounds, axisMode) {
-  if (axisMode === "bpm") {
-    return BPM_RANGE_POINTS.map((point) => point.value);
-  }
-
-  return getAxisValues(bounds, axisMode);
-}
-
-function getBpmBucket(value) {
-  return BPM_BUCKETS.find((bucket) => bucket.value === String(value));
-}
-
-function getBpmRangePoint(value) {
-  return BPM_RANGE_POINTS.find((point) => point.value === String(value));
-}
-
-function formatBpmRangeValue(range) {
-  const startLabel = getBpmRangePoint(range.start)?.startLabel ?? String(range.start ?? "");
-  const endLabel = getBpmRangePoint(range.end)?.endLabel ?? String(range.end ?? "");
-  return `${startLabel} ～ ${endLabel}`;
-}
-
-function formatAxisValue(axisMode, value) {
-  if (value === "" || value === null || value === undefined) {
-    return "ALL";
-  }
-
-  if (axisMode === "level") {
-    return `☆${Number(value).toFixed(2)}`;
-  }
-
-  if (axisMode === "splv") {
-    return `☆${value}`;
-  }
-
-  if (axisMode === "katate") {
-    return `☆${formatKatateFilterValue(value)}`;
-  }
-
-  if (axisMode === "version") {
-    return VERSION_LABELS.get(String(value)) ?? String(value);
-  }
-
-  if (axisMode === "bpm") {
-    return getBpmBucket(value)?.label ?? String(value);
-  }
-
-  return String(value);
-}
-
-function formatExportDateStamp() {
-  return todayIso().replaceAll("-", "");
-}
-
-function formatDateRangeValue(filters) {
-  if (filters.dateSelectionMode === "single") {
-    return formatIsoDate(filters.dateSingle || todayIso());
-  }
-
-  if (!filters.dateStart && !filters.dateEnd) {
-    return "ALL";
-  }
-
-  if (filters.dateStart && filters.dateEnd) {
-    return `${formatIsoDate(filters.dateStart)} ～ ${formatIsoDate(filters.dateEnd)}`;
-  }
-
-  if (filters.dateStart) {
-    return `${formatIsoDate(filters.dateStart)} ～`;
-  }
-
-  return `～ ${formatIsoDate(filters.dateEnd)}`;
-}
-
-function isAxisRangeMode(filters) {
-  return isNumericAxisMode(filters.axisMode)
-    && (isRangeOnlyAxisMode(filters.axisMode) || Boolean(filters.axisRangeModeByAxis?.[filters.axisMode]));
-}
-
-function hasAxisCandidate(axisValues, value) {
-  if (value === "" || value === null || value === undefined) {
-    return false;
-  }
-
-  return axisValues.some((candidate) => String(candidate) === String(value));
-}
-
-function getAxisRangeMinGap(axisMode) {
-  return axisMode === "bpm" ? 1 : 0;
-}
-
-function getNormalizedAxisRange(filters, axisValues) {
-  const axisMode = filters.axisMode;
-  const range = filters.axisRanges?.[axisMode] ?? { start: "", end: "" };
-  const startValue = String(range.start ?? "");
-  const endValue = String(range.end ?? "");
-
-  if (!axisValues.length) {
-    return { start: "", end: "", startIndex: 0, endIndex: 0, valid: false };
-  }
-
-  const startIndex = axisValues.findIndex((value) => String(value) === startValue);
-  const endIndex = axisValues.findIndex((value) => String(value) === endValue);
-  if (startIndex >= 0 && endIndex >= 0 && startIndex + getAxisRangeMinGap(axisMode) <= endIndex) {
-    return { start: startValue, end: endValue, startIndex, endIndex, valid: true };
-  }
-
-  const fallbackStart = String(axisValues[0]);
-  const fallbackEnd = String(axisValues[axisValues.length - 1]);
-  return {
-    start: fallbackStart,
-    end: fallbackEnd,
-    startIndex: 0,
-    endIndex: axisValues.length - 1,
-    valid: true,
-  };
-}
-
-function formatAxisRangeValue(axisMode, range) {
-  if (axisMode === "bpm") {
-    return formatBpmRangeValue(range);
-  }
-
-  return `${formatAxisValue(axisMode, range.start)} ～ ${formatAxisValue(axisMode, range.end)}`;
-}
-
-function getHistoryDateNeighbor(historyDates, isoDate, delta) {
-  if (!Array.isArray(historyDates) || !historyDates.length) {
-    return "";
-  }
-
-  const base = String(isoDate || todayIso());
-  return delta < 0
-    ? [...historyDates].reverse().find((date) => date < base) ?? ""
-    : historyDates.find((date) => date > base) ?? "";
-}
-
-function summarizeAxisFilter(filters, bounds) {
-  if (isTextAxisMode(filters.axisMode)) {
-    return filters.titleQuery.trim()
-      ? `${getAxisLabel(filters.axisMode)} ${filters.titleQuery.trim()}`
-      : `${getAxisLabel(filters.axisMode)} ALL`;
-  }
-
-  if (isDateAxisMode(filters.axisMode)) {
-    return formatDateRangeValue(filters);
-  }
-
-  if (filters.axisMode === "version") {
-    return isAxisRangeMode(filters)
-      ? formatAxisRangeValue(filters.axisMode, getNormalizedAxisRange(filters, getAxisRangeValues(bounds, filters.axisMode)))
-      : formatAxisValue(filters.axisMode, filters.axisValue);
-  }
-
-  if (isAxisRangeMode(filters)) {
-    return `${getAxisLabel(filters.axisMode)} ${formatAxisRangeValue(filters.axisMode, getNormalizedAxisRange(filters, getAxisRangeValues(bounds, filters.axisMode)))}`;
-  }
-
-  return `${getAxisLabel(filters.axisMode)} ${formatAxisValue(filters.axisMode, filters.axisValue)}`;
-}
-
-function getEffectiveSummaryDisplayMode(filters) {
-  if (filters.displayMode === "clear" || filters.displayMode === "score") {
-    return filters.displayMode;
-  }
-
-  return filters.summaryDisplayMode === "score" ? "score" : "clear";
-}
-
-function findClosestValue(values, rawValue, fallbackValue) {
-  if (!values.length) {
-    return fallbackValue;
-  }
-
-  const numericValue = Number(rawValue);
-  if (!Number.isFinite(numericValue)) {
-    return fallbackValue;
-  }
-
-  return values.reduce((closest, candidate) => (
-    Math.abs(candidate - numericValue) < Math.abs(closest - numericValue) ? candidate : closest
-  ), values[0]);
-}
-
-function findValueIndex(values, rawValue, fallbackIndex = 0) {
-  if (!values.length) {
-    return 0;
-  }
-
-  const numericValue = Number(rawValue);
-  if (!Number.isFinite(numericValue)) {
-    return fallbackIndex;
-  }
-
-  const exactIndex = values.findIndex((value) => value === numericValue);
-  if (exactIndex >= 0) {
-    return exactIndex;
-  }
-
-  const nearest = findClosestValue(values, numericValue, values[Math.max(0, Math.min(fallbackIndex, values.length - 1))]);
-  return values.indexOf(nearest);
-}
+  createScrollController,
+} = await import(`./handlers.js${MODULE_VERSION}`);
 
 export function createRenderer(store) {
-  let activeScrollFrame = null;
   let activeChartResizeFrame = null;
   let latestChartHistory = [];
   let latestScoreChartHistory = [];
@@ -840,9 +164,6 @@ export function createRenderer(store) {
   let pendingQueryBlurIntent = null;
   let floatingAxisSingleDragState = null;
   let floatingAxisRangeDragState = null;
-  let lastSummaryLampClick = { lamp: "", timestamp: 0 };
-  let summaryLampPointerState = null;
-  let floatingOutsidePointerState = null;
   let lastScrollY = window.scrollY;
   let lastUserScrollAt = 0;
   let floatingDockSide = "bottom";
@@ -853,12 +174,6 @@ export function createRenderer(store) {
   let isProgrammaticScroll = false;
   let suppressBottomDockState = false;
 
-  function easeInOutCubic(progress) {
-    return progress < 0.5
-      ? 4 * progress * progress * progress
-      : 1 - ((-2 * progress + 2) ** 3) / 2;
-  }
-
   function getScrollOffset() {
     return isMobileViewport() ? 68 : 78;
   }
@@ -867,93 +182,9 @@ export function createRenderer(store) {
     return isMobileViewport() ? 14 : 16;
   }
 
-  function scrollElementIntoView(element, offset = getScrollOffset()) {
-    if (!element) {
-      return;
-    }
-
-    cancelActiveScrollAnimation();
-
-    const startY = window.scrollY;
-    const targetY = Math.max(0, window.scrollY + element.getBoundingClientRect().top - offset);
-    const distance = targetY - startY;
-    const duration = 760;
-    const startTime = performance.now();
-    suppressBottomDockState = true;
-    isProgrammaticScroll = true;
-
-    if (Math.abs(distance) < 1) {
-      window.scrollTo(0, targetY);
-      isProgrammaticScroll = false;
-      window.requestAnimationFrame(() => {
-        suppressBottomDockState = false;
-        syncFloatingDockClass();
-      });
-      return;
-    }
-
-    function step(currentTime) {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = easeInOutCubic(progress);
-      window.scrollTo(0, startY + distance * eased);
-
-      if (progress < 1) {
-        activeScrollFrame = window.requestAnimationFrame(step);
-        return;
-      }
-
-      activeScrollFrame = null;
-      isProgrammaticScroll = false;
-      window.requestAnimationFrame(() => {
-        suppressBottomDockState = false;
-        syncFloatingDockClass();
-      });
-    }
-
-    activeScrollFrame = window.requestAnimationFrame(step);
-  }
-
-  function cancelActiveScrollAnimation() {
-    if (activeScrollFrame === null) {
-      return;
-    }
-
-    window.cancelAnimationFrame(activeScrollFrame);
-    activeScrollFrame = null;
-    isProgrammaticScroll = false;
-  }
-
-  function scrollEntryPanelIntoView() {
-    scrollElementIntoView(document.querySelector("#entry-panel"));
-  }
-
-  function scrollSelectedCardIntoView() {
-    const encodedCatalogKey = nodes.selectedSong?.dataset.catalogKey;
-    if (encodedCatalogKey) {
-      const card = nodes.catalog?.querySelector(`[data-catalog-key="${encodedCatalogKey}"]`);
-      if (card) {
-        scrollElementIntoView(card);
-        return;
-      }
-    }
-
-    const encodedTitle = nodes.selectedSong?.dataset.title;
-    if (!encodedTitle) {
-      return;
-    }
-
-    const card = nodes.catalog?.querySelector(`[data-title="${encodedTitle}"]`);
-    if (!card) {
-      return;
-    }
-
-    scrollElementIntoView(card);
-  }
-
-  function scrollCatalogPanelIntoView() {
-    scrollElementIntoView(nodes.catalogPanel ?? nodes.catalog);
-  }
+  let scrollEntryPanelIntoView;
+  let scrollSelectedCardIntoView;
+  let scrollCatalogPanelIntoView;
 
   function resetFloatingFilterFocusState() {
     floatingQueryFocused = false;
@@ -1483,6 +714,17 @@ export function createRenderer(store) {
   const nodes = collectRendererNodes();
 
   initializeRendererNodeClasses(nodes);
+  ({
+    scrollEntryPanelIntoView,
+    scrollSelectedCardIntoView,
+    scrollCatalogPanelIntoView,
+  } = createScrollController({
+    nodes,
+    getScrollOffset,
+    setProgrammaticScroll: (value) => { isProgrammaticScroll = value; },
+    setSuppressBottomDockState: (value) => { suppressBottomDockState = value; },
+    syncFloatingDockClass,
+  }));
 
   function syncEntryBpInputMode() {
     syncEntryBpInputModeComponent({
@@ -2075,662 +1317,25 @@ export function createRenderer(store) {
     }
   }
 
-  nodes.summaryFiltersToggle?.addEventListener("click", () => {
-    summaryFiltersOpen = !summaryFiltersOpen;
-    persistSummaryFiltersOpen(summaryFiltersOpen);
-    renderFilterDraftPanel();
-  });
-
-  nodes.summaryDisplaySelect?.addEventListener("change", () => {
-    if (nodes.summaryDisplaySelect.disabled) {
-      return;
-    }
-
-    const nextSummaryDisplayMode = SUMMARY_DISPLAY_MODE_OPTIONS.some((option) => option.value === nodes.summaryDisplaySelect.value)
-      ? nodes.summaryDisplaySelect.value
-      : "clear";
-    filterDraft = {
-      ...(filterDraft ?? store.getSnapshot().filters),
-      summaryDisplayMode: nextSummaryDisplayMode,
-    };
-    applyDifficultyFilters({ summaryDisplayMode: nextSummaryDisplayMode }, { scrollToCatalog: false });
-  });
-
-  nodes.summaryFiltersPanel.addEventListener("input", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    if (!target.closest("[data-filter]")) {
-      return;
-    }
-
-    filterDraft = readFiltersFromPanel();
-    applyDifficultyFilters(filterDraft, { scrollToCatalog: false });
-  });
-
-  nodes.summaryFiltersPanel.addEventListener("change", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    if (target.closest("[data-filter]")) {
-      filterDraft = readFiltersFromPanel();
-      applyDifficultyFilters(filterDraft, { scrollToCatalog: false });
-    }
-  });
-
-  nodes.summaryFiltersPanel.addEventListener("click", (event) => {
-    const resetButton = event.target.closest('[data-filter-action="reset"]');
-
-    if (!resetButton) {
-      return;
-    }
-
-    filterDraft = {
-      axisMode: filterDraft?.axisMode ?? "splv",
-      axisValue: filterDraft?.axisValue ?? "",
-      titleQuery: filterDraft?.titleQuery ?? "",
-      dateSelectionMode: filterDraft?.dateSelectionMode ?? "single",
-      dateSingle: filterDraft?.dateSingle ?? todayIso(),
-      dateStart: filterDraft?.dateStart ?? "",
-      dateEnd: filterDraft?.dateEnd ?? "",
-      displayMode: "all",
-      summaryDisplayMode: filterDraft?.summaryDisplayMode ?? "clear",
-      inf: "all",
-      acdelete: "all",
-      recommend: ["", "△", "○", "◎", "☆"],
-      chartDifficulties: ["B", "N", "H", "A", "L"],
-      versionChartDifficulties: filterDraft?.versionChartDifficulties ? [...filterDraft.versionChartDifficulties] : [...CHART_DIFFICULTY_OPTIONS],
-      scoreRanks: [...SCORE_RANK_OPTIONS],
-      lamps: filterDraft?.lamps ? [...filterDraft.lamps] : [...LAMP_OPTIONS],
-      includeUnrated: "all",
-    };
-    floatingAxisPreviewMode = null;
-    floatingAxisPreviewValue = null;
-    applyDifficultyFilters(filterDraft, { scrollToCatalog: false });
-  });
-
-  nodes.floatingAxisFilter.addEventListener("click", (event) => {
-    event.stopPropagation();
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    if (target.closest("[data-floating-toggle]")) {
-      event.stopPropagation();
-      toggleFloatingFilter();
-      return;
-    }
-
-    if (target.closest("[data-floating-clear]")) {
-      event.preventDefault();
-      event.stopPropagation();
-      const activeFilters = filterDraft ?? store.getSnapshot().filters;
-      clearFloatingAxisFilter();
-      if (!isTextAxisMode(activeFilters.axisMode) && !isDateAxisMode(activeFilters.axisMode)) {
-        closeFloatingFilter({ preserveScroll: !shouldScrollCatalogPanelUpward() });
-      }
-      return;
-    }
-
-    if (target.closest("[data-date-reset]")) {
-      event.preventDefault();
-      event.stopPropagation();
-      pendingQueryBlurIntent = "clear";
-      const { filters, dateDefaultRange } = store.getSnapshot();
-      const nextDateFilters = filters.dateSelectionMode === "single"
-        ? { dateSelectionMode: "single", dateSingle: dateDefaultRange?.dateEnd || todayIso() }
-        : { dateSelectionMode: "range", ...dateDefaultRange };
-      applyFiltersPreservingOverviewPosition({ axisMode: "date", axisValue: "", ...nextDateFilters }, { scrollToCatalog: false });
-      return;
-    }
-
-    if (target.closest("[data-date-mode-toggle]")) {
-      event.preventDefault();
-      event.stopPropagation();
-      toggleDateSelectionMode();
-      return;
-    }
-
-    const dateShiftButton = target.closest("[data-date-single-shift]");
-    if (dateShiftButton) {
-      event.preventDefault();
-      event.stopPropagation();
-      moveSingleDateFilterBy(Number(dateShiftButton.dataset.dateSingleShift));
-      return;
-    }
-
-    if (target.closest("[data-axis-range-toggle]")) {
-      event.preventDefault();
-      event.stopPropagation();
-      const activeFilters = filterDraft ?? store.getSnapshot().filters;
-      toggleAxisRangeMode(activeFilters.axisMode);
-      return;
-    }
-  });
-
-  nodes.floatingAxisFilter.addEventListener("pointerdown", (event) => {
-    event.stopPropagation();
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    const singleWrap = target.closest(".floating-filter-single-wrap");
-    if (singleWrap instanceof HTMLElement) {
-      event.preventDefault();
-
-      const activeFilters = filterDraft ?? store.getSnapshot().filters;
-      const slider = singleWrap.querySelector("input[data-axis-slider]");
-
-      if (!(slider instanceof HTMLInputElement) || slider.disabled) {
-        return;
-      }
-
-      const pointerIndex = getFloatingAxisSinglePointerIndex(event, singleWrap);
-
-      floatingAxisSingleDragState = {
-        axisMode: activeFilters.axisMode,
-        sliderWrap: singleWrap,
-        pointerId: event.pointerId,
-      };
-
-      singleWrap.setPointerCapture?.(event.pointerId);
-      previewFloatingAxisSliderToIndex(activeFilters.axisMode, pointerIndex);
-      return;
-    }    
-
-    const rangeWrap = target.closest(".floating-filter-range-wrap");
-    if (rangeWrap instanceof HTMLElement) {
-      event.preventDefault();
-      const activeFilters = filterDraft ?? store.getSnapshot().filters;
-      const range = floatingAxisRangePreviewMode === activeFilters.axisMode && floatingAxisRangePreviewValue
-        ? floatingAxisRangePreviewValue
-        : getActiveAxisRange(activeFilters);
-      const pointerIndex = getFloatingAxisRangePointerIndex(event, rangeWrap);
-      const handle = range.startIndex === range.endIndex
-        ? "auto"
-        : Math.abs(pointerIndex - range.startIndex) <= Math.abs(pointerIndex - range.endIndex) ? "start" : "end";
-      floatingAxisRangeDragState = {
-        axisMode: activeFilters.axisMode,
-        handle,
-        rangeWrap,
-        pointerId: event.pointerId,
-      };
-      rangeWrap.setPointerCapture?.(event.pointerId);
-      const activeHandle = previewFloatingAxisRangeToIndex(activeFilters.axisMode, pointerIndex, handle);
-      if (activeHandle && !(handle === "auto" && pointerIndex === range.startIndex)) {
-        floatingAxisRangeDragState.handle = activeHandle;
-      }
-      return;
-    }  
-
-    if (target.closest("[data-axis-mode]")) {
-      pendingQueryBlurIntent = "axis-mode";
-    
-      if (!isHoverNoneEnvironment() && performance.now() - lastUserScrollAt < 450) {
-        event.preventDefault();
-        return;
-      }
-    
-      return;
-    }
-
-    pendingQueryBlurIntent = null;
-  });
-
-  nodes.floatingAxisFilter.addEventListener("pointermove", (event) => {
-    if (floatingAxisSingleDragState) {
-      event.preventDefault();
-
-      const { axisMode, sliderWrap } = floatingAxisSingleDragState;
-      const pointerIndex = getFloatingAxisSinglePointerIndex(event, sliderWrap);
-      previewFloatingAxisSliderToIndex(axisMode, pointerIndex);
-      return;
-    }
-
-    if (!floatingAxisRangeDragState) {
-      return;
-    }
-
-    event.preventDefault();
-    const { axisMode, handle, rangeWrap } = floatingAxisRangeDragState;
-    const pointerIndex = getFloatingAxisRangePointerIndex(event, rangeWrap);
-    const range = floatingAxisRangePreviewMode === axisMode && floatingAxisRangePreviewValue
-      ? floatingAxisRangePreviewValue
-      : getActiveAxisRange({ ...(filterDraft ?? store.getSnapshot().filters), axisMode });
-    const activeHandle = previewFloatingAxisRangeToIndex(axisMode, pointerIndex, handle);
-    if (handle === "auto" && activeHandle && pointerIndex !== range.startIndex) {
-      floatingAxisRangeDragState.handle = activeHandle;
-    }
-  });
-
-  nodes.floatingAxisFilter.addEventListener("pointerup", (event) => {
-    if (floatingAxisSingleDragState) {
-      event.preventDefault();
-
-      releaseFloatingAxisSinglePointerCapture();
-      floatingAxisSingleDragState = null;
-
-      const shouldScroll = shouldScrollCatalogPanelUpward();
-      if (commitFloatingAxisSliderShortcut() && shouldScroll) {
-        window.requestAnimationFrame(scrollCatalogPanelIntoView);
-      }
-
-      return;
-    }
-
-    if (floatingAxisRangeDragState) {
-      event.preventDefault();
-
-      releaseFloatingAxisRangePointerCapture();
-      floatingAxisRangeDragState = null;
-
-      const shouldScroll = shouldScrollCatalogPanelUpward();
-      if (commitFloatingAxisRange() && shouldScroll) {
-        window.requestAnimationFrame(scrollCatalogPanelIntoView);
-      }
-
-      return;
-    }
-  });
-
-  nodes.floatingAxisFilter.addEventListener("pointercancel", (event) => {
-    if (floatingAxisSingleDragState) {
-      event.preventDefault();
-
-      releaseFloatingAxisSinglePointerCapture();
-      floatingAxisSingleDragState = null;
-      floatingAxisPreviewMode = null;
-      floatingAxisPreviewValue = null;
-      renderFloatingFilterShell();
-      return;
-    }
-
-    if (!floatingAxisRangeDragState) {
-      return;
-    }
-
-    event.preventDefault();
-    releaseFloatingAxisRangePointerCapture();
-    floatingAxisRangeDragState = null;
-    floatingAxisRangePreviewMode = null;
-    floatingAxisRangePreviewValue = null;
-    floatingAxisRangeShortcutPending = false;
-    renderFloatingFilterShell();
-  });
-
-  nodes.floatingAxisFilter.addEventListener("input", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    if (target instanceof HTMLInputElement
-      && (target.hasAttribute("data-axis-range-start") || target.hasAttribute("data-axis-range-end"))
-    ) {
-      const activeFilters = filterDraft ?? store.getSnapshot().filters;
-      const axisValues = getAxisRangeValues(latestFilterBounds, activeFilters.axisMode);
-      const currentRange = floatingAxisRangePreviewMode === activeFilters.axisMode && floatingAxisRangePreviewValue
-        ? floatingAxisRangePreviewValue
-        : getActiveAxisRange(activeFilters);
-      const minGap = getAxisRangeMinGap(activeFilters.axisMode);
-      let startIndex = currentRange.startIndex;
-      let endIndex = currentRange.endIndex;
-
-      if (target.hasAttribute("data-axis-range-start")) {
-        startIndex = Math.min(Number(target.value), endIndex - minGap);
-        floatingAxisRangeActiveHandleByAxis[activeFilters.axisMode] = "start";
-      } else {
-        endIndex = Math.max(Number(target.value), startIndex + minGap);
-        floatingAxisRangeActiveHandleByAxis[activeFilters.axisMode] = "end";
-      }
-
-      const nextRange = {
-        start: String(axisValues[startIndex] ?? ""),
-        end: String(axisValues[endIndex] ?? ""),
-        startIndex,
-        endIndex,
-        valid: axisValues.length > 0,
-      };
-      floatingAxisRangePreviewMode = activeFilters.axisMode;
-      floatingAxisRangePreviewValue = nextRange;
-      floatingAxisRangeShortcutPending = true;
-      updateFloatingRangeDisplay(activeFilters.axisMode, nextRange);
-      return;
-    }
-
-    if (target instanceof HTMLInputElement && target.hasAttribute("data-axis-slider")) {
-      const activeFilters = filterDraft ?? store.getSnapshot().filters;
-      const axisValues = getAxisValues(latestFilterBounds, activeFilters.axisMode);
-      const sliderStops = ["", ...axisValues];
-      const index = Number(target.value);
-      const nextValue = sliderStops[index] ?? "";
-      const previewValue = nextValue === "" ? "" : String(nextValue);
-
-      floatingAxisPreviewMode = activeFilters.axisMode;
-      floatingAxisPreviewValue = previewValue;
-
-      updateFloatingSingleSliderDisplay(activeFilters.axisMode, Number.isFinite(index) ? index : 0, previewValue);
-      return;
-    }
-
-    if (target instanceof HTMLInputElement && target.hasAttribute("data-axis-query")) {
-      floatingQuerySelection = {
-        start: target.selectionStart ?? target.value.length,
-        end: target.selectionEnd ?? target.value.length,
-      };
-    }
-  });
-
-  nodes.floatingAxisFilter.addEventListener("change", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    if (target instanceof HTMLInputElement
-      && (target.hasAttribute("data-axis-range-start") || target.hasAttribute("data-axis-range-end"))
-    ) {
-      commitFloatingAxisRange();
-      return;
-    }
-
-    if (target instanceof HTMLInputElement && target.hasAttribute("data-axis-slider")) {
-      const activeFilters = filterDraft ?? store.getSnapshot().filters;
-      const committedValue = floatingAxisPreviewMode === activeFilters.axisMode
-        ? floatingAxisPreviewValue
-        : ["", ...getAxisValues(latestFilterBounds, activeFilters.axisMode)][Number(target.value)] ?? "";
-      const nextAxisValue = committedValue === "" ? "" : String(committedValue);
-      rememberFloatingAxisValue(activeFilters.axisMode, nextAxisValue);
-      floatingAxisPreviewMode = null;
-      floatingAxisPreviewValue = null;
-      if (shouldCloseFloatingFilterAfterSliderCommit()) {
-        floatingQueryFocused = false;
-        floatingFilterOpen = false;
-        syncQueryScrollLockState();
-      }
-      applyDifficultyFilters({ axisValue: nextAxisValue });
-      return;
-    }
-
-    if (target instanceof HTMLInputElement && target.hasAttribute("data-axis-query")) {
-      floatingQuerySelection = {
-        start: target.selectionStart ?? target.value.length,
-        end: target.selectionEnd ?? target.value.length,
-      };
-      return;
-    }
-
-    if (isDateFilterInput(target)) {
-      scheduleDateFilterCommitIfBlurred();
-      return;
-    }
-
-    if (target instanceof HTMLSelectElement && target.hasAttribute("data-axis-mode")) {
-      const nextAxisMode = target.value;
-      if (floatingAxisModeCommitTimer !== null) {
-        window.clearTimeout(floatingAxisModeCommitTimer);
-        floatingAxisModeCommitTimer = null;
-      }
-
-      floatingAxisModeCommitTimer = window.setTimeout(() => {
-        floatingAxisModeCommitTimer = null;
-        pendingQueryBlurIntent = null;
-        floatingAxisPreviewMode = null;
-        floatingAxisPreviewValue = null;
-        floatingQueryFocused = false;
-        syncQueryScrollLockState();
-        const currentFilters = store.getSnapshot().filters;
-        const nextAxisFilters = { axisMode: nextAxisMode };
-        if (isRangeOnlyAxisMode(nextAxisMode)) {
-          nextAxisFilters.axisRangeModeByAxis = {
-            ...currentFilters.axisRangeModeByAxis,
-            [nextAxisMode]: true,
-          };
-        }
-        if (isNumericAxisMode(nextAxisMode) && isAxisRangeMode({ ...currentFilters, axisMode: nextAxisMode })) {
-          const axisValues = getAxisRangeValues(latestFilterBounds, nextAxisMode);
-          const rawRange = currentFilters.axisRanges?.[nextAxisMode] ?? { start: "", end: "" };
-          const startIndex = axisValues.findIndex((value) => String(value) === String(rawRange.start));
-          const endIndex = axisValues.findIndex((value) => String(value) === String(rawRange.end));
-          if (axisValues.length && (startIndex < 0 || endIndex < 0 || startIndex > endIndex)) {
-            nextAxisFilters.axisRanges = {
-              ...currentFilters.axisRanges,
-              [nextAxisMode]: {
-                start: String(axisValues[0]),
-                end: String(axisValues[axisValues.length - 1]),
-              },
-            };
-          }
-        }
-        applyFiltersPreservingOverviewPosition(nextAxisFilters);
-      }, 0);
-    }
-  });
-
-  nodes.floatingAxisFilter.addEventListener("pointerup", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-axis-slider")) {
-      return;
-    }
-
-    const activeFilters = filterDraft ?? store.getSnapshot().filters;
-    if (floatingAxisPreviewMode !== activeFilters.axisMode) {
-      return;
-    }
-
-    const committedValue = floatingAxisPreviewMode === activeFilters.axisMode
-      ? floatingAxisPreviewValue
-      : ["", ...getAxisValues(latestFilterBounds, activeFilters.axisMode)][Number(target.value)] ?? "";
-    const nextAxisValue = committedValue === "" ? "" : String(committedValue);
-
-    if (String(nextAxisValue ?? "") !== String(activeFilters.axisValue ?? "")) {
-      return;
-    }
-
-    rememberFloatingAxisValue(activeFilters.axisMode, nextAxisValue);
-    floatingAxisPreviewMode = null;
-    floatingAxisPreviewValue = null;
-
-    if (shouldCloseFloatingFilterAfterSliderCommit()) {
-      floatingQueryFocused = false;
-      floatingFilterOpen = false;
-      syncQueryScrollLockState();
-    }
-
-    applyDifficultyFilters({ axisValue: nextAxisValue });
-  });
-
-  nodes.floatingAxisFilter.addEventListener("search", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-axis-query")) {
-      return;
-    }
-
-    if (floatingQueryComposing) {
-      return;
-    }
-
-    floatingQuerySelection = {
-      start: target.selectionStart ?? target.value.length,
-      end: target.selectionEnd ?? target.value.length,
-    };
-
-    if (target.value === "") {
-      applyTitleQueryFilter(target, { keepFocus: true, scrollToCatalog: false });
-    }
-  });
-
-  nodes.floatingAxisFilter.addEventListener("keydown", (event) => {
-    const target = event.target;
-    if (isDateFilterInput(target)) {
-      dateFilterKeyboardEditUntil = performance.now() + 900;
-      if (event.key === "Enter" && !event.isComposing) {
-        target.blur();
-      }
-      return;
-    }
-
-    if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-axis-query")) {
-      return;
-    }
-
-    if (event.key !== "Enter" || event.isComposing || floatingQueryComposing) {
-      return;
-    }
-
-    target.blur();
-  });
-
-  nodes.floatingAxisFilter.addEventListener("compositionstart", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-axis-query")) {
-      return;
-    }
-
-    floatingQueryComposing = true;
-  });
-
-  nodes.floatingAxisFilter.addEventListener("focusin", (event) => {
-    const target = event.target;
-    if (!isTitleQueryElement(target)) {
-      return;
-    }
-
-    floatingQueryFocused = true;
-    floatingQueryRestoreFocus = false;
-    syncQueryScrollLockState();
-  });
-
-  nodes.floatingAxisFilter.addEventListener("focusout", (event) => {
-    const target = event.target;
-    if (!isTitleQueryElement(target)) {
-      return;
-    }
-
-    window.requestAnimationFrame(() => {
-      const activeElement = document.activeElement;
-      syncQueryScrollLockState();
-      if (isTitleQueryElement(activeElement)) {
-        return;
-      }
-
-      if (activeElement instanceof HTMLSelectElement && activeElement.hasAttribute("data-axis-mode")) {
-        return;
-      }
-
-      if (floatingQueryRestoreFocus) {
-        return;
-      }
-
-      if (event.relatedTarget instanceof HTMLElement && event.relatedTarget.closest("[data-floating-clear]")) {
-        return;
-      }
-
-      if (pendingQueryBlurIntent === "clear") {
-        pendingQueryBlurIntent = null;
-        return;
-      }
-
-      if (pendingQueryBlurIntent === "escape") {
-        pendingQueryBlurIntent = null;
-        return;
-      }
-
-      applyTitleQueryFilter(target, { keepFocus: false, scrollToCatalog: false });
-      closeFloatingFilter({ preserveScroll: false });
-    });
-  });
-
-  nodes.floatingAxisFilter.addEventListener("focusout", (event) => {
-    const target = event.target;
-    if (!isDateFilterInput(target)) {
-      return;
-    }
-
-    window.requestAnimationFrame(() => {
-      const activeElement = document.activeElement;
-      if (isDateFilterInput(activeElement)) {
-        return;
-      }
-
-      if (dateFilterCommitTimer !== null) {
-        window.clearTimeout(dateFilterCommitTimer);
-        dateFilterCommitTimer = null;
-      }
-
-      if (pendingQueryBlurIntent === "escape") {
-        pendingQueryBlurIntent = null;
-        return;
-      }
-
-      applyDateFilter();
-    });
-  });
-
-  nodes.floatingAxisFilter.addEventListener("compositionend", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-axis-query")) {
-      return;
-    }
-
-    floatingQueryComposing = false;
-  });
-
-  function applySummaryLampVisualState(activeLamps) {
-    const activeSet = new Set(activeLamps);
-    const filters = filterDraft ?? store.getSnapshot().filters;
-    const isScoreMode = getEffectiveSummaryDisplayMode(filters) === "score";
-  
-    nodes.summary.querySelectorAll("[data-summary-lamp]").forEach((button) => {
-      const lamp = button.dataset.summaryLamp;
-      const isActive = isScoreMode && lamp === "F"
-        ? activeSet.has("F") || activeSet.has("※")
-        : activeSet.has(lamp);
-  
-      button.classList.toggle("is-active", isActive);
-      button.classList.toggle("is-inactive", !isActive);
-      button.setAttribute("aria-pressed", isActive ? "true" : "false");
-    });
-  }
-
-  function getActiveSummaryFilterConfig() {
-    const filters = filterDraft ?? store.getSnapshot().filters;
-    const isScoreMode = getEffectiveSummaryDisplayMode(filters) === "score";
-    return {
-      key: isScoreMode ? "scoreRanks" : "lamps",
-      options: isScoreMode ? SCORE_RANK_SUMMARY_OPTIONS : LAMP_OPTIONS,
-    };
-  }
-
-  function isSummaryLampFilterInteractionDisabled() {
-    return isTextAxisMode(store.getSnapshot().filters.axisMode);
-  }
-  
   function deferDifficultyFilters(nextFilters, options = {}) {
     deferredFilterRevision += 1;
     const revision = deferredFilterRevision;
-  
+
     if (deferredFilterTimer !== null) {
       window.clearTimeout(deferredFilterTimer);
       deferredFilterTimer = null;
     }
-  
+
     deferredFilterTimer = window.setTimeout(() => {
       deferredFilterTimer = null;
-  
+
       if (revision !== deferredFilterRevision) {
         return;
       }
-  
+
       applyDifficultyFilters(nextFilters, options);
     }, 300);
-  }  
+  }
 
   function clearFloatingAxisFilter() {
     const activeFilters = filterDraft ?? store.getSnapshot().filters;
@@ -2757,842 +1362,185 @@ export function createRenderer(store) {
     applyFiltersPreservingOverviewPosition({ axisValue: "" }, { scrollToCatalog: false });
   }
 
-  function toggleSummaryLampFilter(lamp) {
-    if (isSummaryLampFilterInteractionDisabled()) {
-      return;
-    }
-
-    const { key, options } = getActiveSummaryFilterConfig();
-    const filters = filterDraft ?? store.getSnapshot().filters;
-    const isScoreMode = getEffectiveSummaryDisplayMode(filters) === "score";
-    const allValues = isScoreMode ? SCORE_RANK_OPTIONS : options;
-    const currentLamps = filterDraft?.[key] ? [...filterDraft[key]] : [...allValues];
-    const isActive = isScoreMode && lamp === "F"
-      ? currentLamps.includes("F") || currentLamps.includes("※")
-      : currentLamps.includes(lamp);
-    let nextLamps = isActive
-      ? currentLamps.filter((value) => (
-        isScoreMode && lamp === "F" ? value !== "F" && value !== "※" : value !== lamp
-      ))
-      : [...currentLamps, lamp, ...(isScoreMode && lamp === "F" ? ["※"] : [])];
-    nextLamps = [...new Set(nextLamps)];
-
-    if (nextLamps.length === 0) {
-      nextLamps = [...allValues];
-    }
-
-    filterDraft = {
-      ...(filterDraft ?? store.getSnapshot().filters),
-      [key]: nextLamps,
-    };
-    applySummaryLampVisualState(nextLamps);
-    deferDifficultyFilters({ [key]: nextLamps }, { scrollToCatalog: false });
-  }
-
-  function soloSummaryLampFilter(lamp) {
-    if (isSummaryLampFilterInteractionDisabled()) {
-      return;
-    }
-
-    const { key } = getActiveSummaryFilterConfig();
-    const filters = filterDraft ?? store.getSnapshot().filters;
-    const isScoreMode = getEffectiveSummaryDisplayMode(filters) === "score";
-    const nextLamps = isScoreMode && lamp === "F" ? ["F", "※"] : [lamp];
-    filterDraft = {
-      ...(filterDraft ?? store.getSnapshot().filters),
-      [key]: nextLamps,
-    };
-    applySummaryLampVisualState(nextLamps);
-    deferDifficultyFilters({ [key]: nextLamps }, { scrollToCatalog: false });
-  }
-
-  function toggleSummaryChartDifficultyFilter(chartDifficulty) {
-    if (!CHART_DIFFICULTY_OPTIONS.includes(chartDifficulty)) {
-      return;
-    }
-
-    const filters = filterDraft ?? store.getSnapshot().filters;
-    if (filters.axisMode !== "version") {
-      return;
-    }
-
-    const currentValues = filters.versionChartDifficulties ? [...filters.versionChartDifficulties] : [...CHART_DIFFICULTY_OPTIONS];
-    const nextValues = currentValues.includes(chartDifficulty)
-      ? currentValues.filter((value) => value !== chartDifficulty)
-      : [...currentValues, chartDifficulty];
-    const orderedValues = CHART_DIFFICULTY_OPTIONS.filter((option) => nextValues.includes(option));
-
-    filterDraft = {
-      ...filters,
-      versionChartDifficulties: orderedValues,
-    };
-    applyDifficultyFilters({ versionChartDifficulties: orderedValues }, { scrollToCatalog: false });
-  }
-
-  function handleSummaryLampActivation(lamp, timestamp = performance.now()) {
-    if (isSummaryLampFilterInteractionDisabled()) {
-      return;
-    }
-
-    const { key } = getActiveSummaryFilterConfig();
-    if (lastSummaryLampClick.lamp === lamp && timestamp - lastSummaryLampClick.timestamp <= SUMMARY_LAMP_DOUBLE_CLICK_MS) {
-      const filters = filterDraft ?? store.getSnapshot().filters;
-      const isScoreMode = getEffectiveSummaryDisplayMode(filters) === "score";
-      const nextLamps = isScoreMode && lamp === "F" ? ["F", "※"] : [lamp];
-      filterDraft = {
-        ...(filterDraft ?? store.getSnapshot().filters),
-        [key]: nextLamps,
-      };
-      applySummaryLampVisualState(nextLamps);
-      deferDifficultyFilters({ [key]: nextLamps }, { scrollToCatalog: false });
-      lastSummaryLampClick = { lamp: "", timestamp: 0 };
-      return;
-    }
-
-    lastSummaryLampClick = { lamp, timestamp };
-    toggleSummaryLampFilter(lamp);
-  }
-
-  function getSummaryLampButton(target) {
-    if (!(target instanceof HTMLElement)) {
-      return null;
-    }
-
-    const button = target.closest("[data-summary-lamp]");
-    return button instanceof HTMLElement ? button : null;
-  }
-
-  function clearSummaryLampSwipeStyle(button) {
-    if (!(button instanceof HTMLElement)) {
-      return;
-    }
-
-    button.style.transition = "";
-    button.style.transform = "";
-  }
-
-  function animateSummaryLampSwipeReturn(button) {
-    if (!(button instanceof HTMLElement)) {
-      return;
-    }
-
-    const currentTransform = button.style.transform || "translateX(0)";
-    button.style.transition = "none";
-    button.style.transform = currentTransform;
-    button.getBoundingClientRect();
-    button.style.transition = "transform 180ms ease";
-    button.style.transform = "translateX(0)";
-    window.setTimeout(() => {
-      clearSummaryLampSwipeStyle(button);
-    }, 190);
-  }
-
-  function animateSummaryLampSwipeSolo(button, onComplete) {
-    clearSummaryLampSwipeStyle(button);
-    onComplete();
-  }
-
-  nodes.summary.addEventListener("pointerdown", (event) => {
-    if (isSummaryLampFilterInteractionDisabled()) {
-      summaryLampPointerState = null;
-      return;
-    }
-
-    if (event.button !== undefined && event.button !== 0) {
-      return;
-    }
-
-    const button = getSummaryLampButton(event.target);
-    if (!button) {
-      summaryLampPointerState = null;
-      return;
-    }
-
-    const lamp = button.dataset.summaryLamp;
-    if (!lamp || !getActiveSummaryFilterConfig().options.includes(lamp)) {
-      summaryLampPointerState = null;
-      return;
-    }
-
-    summaryLampPointerState = {
-      lamp,
-      button,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      lastDeltaX: 0,
-      lastDeltaY: 0,
-      moved: false,
-    };
+  bindSummaryFilterPanelHandlers({
+    nodes,
+    store,
+    todayIso,
+    lampOptions: LAMP_OPTIONS,
+    chartDifficultyOptions: CHART_DIFFICULTY_OPTIONS,
+    scoreRankOptions: SCORE_RANK_OPTIONS,
+    summaryDisplayModeOptions: SUMMARY_DISPLAY_MODE_OPTIONS,
+    getFilterDraft: () => filterDraft,
+    setFilterDraft: (value) => { filterDraft = value; },
+    getSummaryFiltersOpen: () => summaryFiltersOpen,
+    setSummaryFiltersOpen: (value) => { summaryFiltersOpen = value; },
+    persistSummaryFiltersOpen,
+    renderFilterDraftPanel,
+    readFiltersFromPanel,
+    applyDifficultyFilters,
   });
 
-  nodes.summary.addEventListener("pointermove", (event) => {
-    if (!summaryLampPointerState || event.pointerId !== summaryLampPointerState.pointerId) {
-      return;
-    }
+  const floatingHandlerState = {
+    get filterDraft() { return filterDraft; },
+    set filterDraft(value) { filterDraft = value; },
+    get latestFilterBounds() { return latestFilterBounds; },
+    get floatingAxisModeCommitTimer() { return floatingAxisModeCommitTimer; },
+    set floatingAxisModeCommitTimer(value) { floatingAxisModeCommitTimer = value; },
+    get dateFilterCommitTimer() { return dateFilterCommitTimer; },
+    set dateFilterCommitTimer(value) { dateFilterCommitTimer = value; },
+    get dateFilterKeyboardEditUntil() { return dateFilterKeyboardEditUntil; },
+    set dateFilterKeyboardEditUntil(value) { dateFilterKeyboardEditUntil = value; },
+    get floatingFilterOpen() { return floatingFilterOpen; },
+    set floatingFilterOpen(value) { floatingFilterOpen = value; },
+    get floatingAxisPreviewMode() { return floatingAxisPreviewMode; },
+    set floatingAxisPreviewMode(value) { floatingAxisPreviewMode = value; },
+    get floatingAxisPreviewValue() { return floatingAxisPreviewValue; },
+    set floatingAxisPreviewValue(value) { floatingAxisPreviewValue = value; },
+    get floatingAxisRangePreviewMode() { return floatingAxisRangePreviewMode; },
+    set floatingAxisRangePreviewMode(value) { floatingAxisRangePreviewMode = value; },
+    get floatingAxisRangePreviewValue() { return floatingAxisRangePreviewValue; },
+    set floatingAxisRangePreviewValue(value) { floatingAxisRangePreviewValue = value; },
+    get floatingAxisRangeShortcutPending() { return floatingAxisRangeShortcutPending; },
+    set floatingAxisRangeShortcutPending(value) { floatingAxisRangeShortcutPending = value; },
+    get floatingAxisSingleDragState() { return floatingAxisSingleDragState; },
+    set floatingAxisSingleDragState(value) { floatingAxisSingleDragState = value; },
+    get floatingAxisRangeDragState() { return floatingAxisRangeDragState; },
+    set floatingAxisRangeDragState(value) { floatingAxisRangeDragState = value; },
+    get floatingAxisRangeActiveHandleByAxis() { return floatingAxisRangeActiveHandleByAxis; },
+    get floatingQuerySelection() { return floatingQuerySelection; },
+    set floatingQuerySelection(value) { floatingQuerySelection = value; },
+    get floatingQueryComposing() { return floatingQueryComposing; },
+    set floatingQueryComposing(value) { floatingQueryComposing = value; },
+    get floatingQueryFocused() { return floatingQueryFocused; },
+    set floatingQueryFocused(value) { floatingQueryFocused = value; },
+    get floatingQueryRestoreFocus() { return floatingQueryRestoreFocus; },
+    set floatingQueryRestoreFocus(value) { floatingQueryRestoreFocus = value; },
+    get pendingQueryBlurIntent() { return pendingQueryBlurIntent; },
+    set pendingQueryBlurIntent(value) { pendingQueryBlurIntent = value; },
+    get lastUserScrollAt() { return lastUserScrollAt; },
+  };
 
-    const deltaX = event.clientX - summaryLampPointerState.startX;
-    const deltaY = event.clientY - summaryLampPointerState.startY;
-    summaryLampPointerState.lastDeltaX = deltaX;
-    summaryLampPointerState.lastDeltaY = deltaY;
-    if (Math.abs(deltaX) > 12 || Math.abs(deltaY) > 12) {
-      summaryLampPointerState.moved = true;
-    }
-
-    if (!isHoverNoneEnvironment() || !(summaryLampPointerState.button instanceof HTMLElement)) {
-      return;
-    }
-
-    if (deltaX >= 0) {
-      summaryLampPointerState.button.style.transition = "none";
-      summaryLampPointerState.button.style.transform = "translateX(0)";
-      return;
-    }
-
-    const clampedOffset = Math.max(-SUMMARY_LAMP_SWIPE_SOLO_THRESHOLD, deltaX);
-    summaryLampPointerState.button.style.transition = "none";
-    summaryLampPointerState.button.style.transform = `translateX(${clampedOffset}px)`;
+  bindFloatingFilterHandlers({
+    nodes,
+    store,
+    state: floatingHandlerState,
+    todayIso,
+    getAxisValues,
+    getAxisRangeValues,
+    getAxisRangeMinGap,
+    isAxisRangeMode,
+    isDateAxisMode,
+    isHoverNoneEnvironment,
+    isNumericAxisMode,
+    isRangeOnlyAxisMode,
+    isTextAxisMode,
+    getActiveAxisRange,
+    getFloatingAxisSinglePointerIndex,
+    getFloatingAxisRangePointerIndex,
+    previewFloatingAxisSliderToIndex,
+    previewFloatingAxisRangeToIndex,
+    releaseFloatingAxisSinglePointerCapture,
+    releaseFloatingAxisRangePointerCapture,
+    updateFloatingRangeDisplay,
+    updateFloatingSingleSliderDisplay,
+    renderFloatingFilterShell,
+    syncQueryScrollLockState,
+    applyFiltersPreservingOverviewPosition,
+    toggleFloatingFilter,
+    clearFloatingAxisFilter,
+    closeFloatingFilter,
+    shouldScrollCatalogPanelUpward,
+    scrollCatalogPanelIntoView,
+    toggleDateSelectionMode,
+    moveSingleDateFilterBy,
+    toggleAxisRangeMode,
+    commitFloatingAxisSliderShortcut,
+    commitFloatingAxisRange,
+    rememberFloatingAxisValue,
+    shouldCloseFloatingFilterAfterSliderCommit,
+    applyDifficultyFilters,
+    isDateFilterInput,
+    scheduleDateFilterCommitIfBlurred,
+    applyTitleQueryFilter,
+    applyDateFilter,
+    isTitleQueryElement,
   });
 
-  nodes.summary.addEventListener("pointerup", (event) => {
-    if (!summaryLampPointerState || event.pointerId !== summaryLampPointerState.pointerId) {
-      return;
-    }
-
-    const lamp = summaryLampPointerState.lamp;
-    const moved = summaryLampPointerState.moved;
-    const activeButton = summaryLampPointerState.button;
-    const deltaX = event.clientX - summaryLampPointerState.startX;
-    const deltaY = event.clientY - summaryLampPointerState.startY;
-    summaryLampPointerState = null;
-
-    const button = getSummaryLampButton(event.target);
-    if (!lamp || !getActiveSummaryFilterConfig().options.includes(lamp)) {
-      return;
-    }
-
-    if (isHoverNoneEnvironment()) {
-      const absDeltaX = Math.abs(deltaX);
-      const isLeftSwipe = deltaX <= -SUMMARY_LAMP_SWIPE_SOLO_THRESHOLD;
-      if (isLeftSwipe) {
-        lastSummaryLampClick = { lamp: "", timestamp: 0 };
-        animateSummaryLampSwipeSolo(activeButton, () => {
-          soloSummaryLampFilter(lamp);
-        });
-        return;
-      }
-
-      const targetLamp = button?.dataset.summaryLamp;
-      const isTap = absDeltaX <= 12 && Math.abs(deltaY) <= 12 && button && lamp === targetLamp;
-      if (isTap) {
-        clearSummaryLampSwipeStyle(activeButton);
-        toggleSummaryLampFilter(lamp);
-        return;
-      }
-
-      animateSummaryLampSwipeReturn(activeButton);
-      return;
-    }
-
-    if (!button || moved) {
-      return;
-    }
-
-    const targetLamp = button.dataset.summaryLamp;
-    if (lamp !== targetLamp) {
-      return;
-    }
-
-    handleSummaryLampActivation(lamp, Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now());
+  bindSummaryHandlers({
+    nodes,
+    store,
+    lampOptions: LAMP_OPTIONS,
+    chartDifficultyOptions: CHART_DIFFICULTY_OPTIONS,
+    scoreRankOptions: SCORE_RANK_OPTIONS,
+    scoreRankSummaryOptions: SCORE_RANK_SUMMARY_OPTIONS,
+    summaryLampDoubleClickMs: SUMMARY_LAMP_DOUBLE_CLICK_MS,
+    summaryLampSwipeSoloThreshold: SUMMARY_LAMP_SWIPE_SOLO_THRESHOLD,
+    getFilterDraft: () => filterDraft,
+    setFilterDraft: (value) => { filterDraft = value; },
+    getEffectiveSummaryDisplayMode,
+    isTextAxisMode,
+    isHoverNoneEnvironment,
+    applyDifficultyFilters,
+    deferDifficultyFilters,
   });
 
-  nodes.summary.addEventListener("pointercancel", () => {
-    const pointerState = summaryLampPointerState;
-    if (!pointerState) {
-      return;
-    }
-
-    if (isHoverNoneEnvironment() && pointerState.lastDeltaX <= -SUMMARY_LAMP_SWIPE_SOLO_THRESHOLD) {
-      lastSummaryLampClick = { lamp: "", timestamp: 0 };
-      animateSummaryLampSwipeSolo(pointerState.button, () => {
-        soloSummaryLampFilter(pointerState.lamp);
-      });
-      summaryLampPointerState = null;
-      return;
-    }
-
-    animateSummaryLampSwipeReturn(pointerState.button);
-    summaryLampPointerState = null;
+  bindCatalogHandlers({
+    nodes,
+    store,
+    scrollEntryPanelIntoView,
+    setPendingCatalogBottomNextScroll: (value) => { pendingCatalogBottomNextScroll = value; },
+    setPendingCatalogBottomLock: (value) => { pendingCatalogBottomLock = value; },
   });
 
-  nodes.summary.addEventListener("change", (event) => {
-    const chartDifficultyInput = event.target instanceof HTMLInputElement
-      ? event.target.closest("[data-summary-chart-difficulty]")
-      : null;
-    if (chartDifficultyInput instanceof HTMLInputElement) {
-      toggleSummaryChartDifficultyFilter(chartDifficultyInput.dataset.summaryChartDifficulty ?? "");
-      return;
-    }
+  bindKeyboardHandlers({
+    nodes,
+    store,
+    axisShortcutKeys: AXIS_SHORTCUT_KEYS,
+    getFloatingFilterOpen: () => floatingFilterOpen,
+    getFloatingDateShortcutPending: () => floatingDateShortcutPending,
+    getFloatingAxisRangeShortcutPending: () => floatingAxisRangeShortcutPending,
+    setPendingQueryBlurIntent: (value) => { pendingQueryBlurIntent = value; },
+    isTextAxisMode,
+    isEscapeBlurTarget,
+    isShortcutEditableTarget,
+    getCatalogNumberShortcutIndex,
+    selectCatalogSongByShortcut,
+    previewFloatingDateBy,
+    previewFloatingAxisRangeBy,
+    previewFloatingAxisSliderBy,
+    openFloatingFilterIfClosed,
+    toggleFloatingFilter,
+    switchFloatingAxisByShortcut,
+    applyTitleQueryFilter,
+    commitFloatingDateShortcut,
+    commitFloatingAxisRange,
+    commitFloatingAxisSliderShortcut,
   });
 
-  nodes.summary.addEventListener("click", (event) => {
-    if (isSummaryLampFilterInteractionDisabled()) {
-      return;
-    }
-
-    if (event.detail !== 0) {
-      return;
-    }
-
-    const button = getSummaryLampButton(event.target);
-    if (!button) {
-      return;
-    }
-
-    const lamp = button.dataset.summaryLamp;
-    if (!lamp || !getActiveSummaryFilterConfig().options.includes(lamp)) {
-      return;
-    }
-
-    if (isHoverNoneEnvironment()) {
-      toggleSummaryLampFilter(lamp);
-      return;
-    }
-
-    handleSummaryLampActivation(lamp, performance.now());
+  bindRecordFormHandlers({
+    nodes,
+    store,
+    focusNextRecordFormField,
+    getEntryBpValue,
+    clearEntryBpInputs,
+    setEntryFormDirty,
+    getEntryFormDirty: () => entryFormDirty,
+    limitNumberInput,
+    setEntryBpInputMode,
+    scrollSelectedCardIntoView,
   });
 
-  nodes.catalog.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-title]");
-    if (!button) {
-      return;
-    }
-    store.selectSong(
-      decodeURIComponent(button.dataset.title),
-      button.dataset.catalogKey ? decodeURIComponent(button.dataset.catalogKey) : null,
-    );
-    window.requestAnimationFrame(scrollEntryPanelIntoView);
+  bindIoHandlers({
+    nodes,
+    store,
+    setButtonLoading,
+    lockHeroButtonsExcept,
+    clearHeroButtonStates,
   });
 
-  function handlePaginationClick(event, anchorToBottom = false) {
-    const chartDifficultyHeadButton = event.target.closest("[data-chart-difficulty-head-toggle]");
-    if (chartDifficultyHeadButton) {
-      store.rotateChartDifficultySortHead();
-      return;
-    }
-
-    const recommendHeadButton = event.target.closest("[data-recommend-head-toggle]");
-    if (recommendHeadButton) {
-      store.rotateRecommendSortHead();
-      return;
-    }
-
-    const sortDirectionButton = event.target.closest("[data-sort-direction-toggle]");
-    if (sortDirectionButton) {
-      store.toggleSortDirection();
-      return;
-    }
-
-    const button = event.target.closest("[data-page]");
-    if (!button) {
-      return;
-    }
-
-    if (anchorToBottom && button.dataset.page === "next") {
-      pendingCatalogBottomNextScroll = true;
-    } else if (anchorToBottom && nodes.catalogPanel) {
-      pendingCatalogBottomLock = nodes.catalogPanel.getBoundingClientRect().bottom;
-    }
-
-    const snapshot = store.getSnapshot();
-    if (button.dataset.page === "prev") {
-      store.setPage(snapshot.pagination.currentPage - 1);
-      return;
-    }
-
-    if (button.dataset.page === "next") {
-      store.setPage(snapshot.pagination.currentPage + 1);
-    }
-  }
-
-  nodes.catalogPaginationTop.addEventListener("click", (event) => handlePaginationClick(event, false));
-  nodes.catalogPaginationBottom.addEventListener("click", (event) => handlePaginationClick(event, true));
-  nodes.catalogSortSelect?.addEventListener("change", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLSelectElement)) {
-      return;
-    }
-
-    store.setSortMode(target.value);
-  });
-  nodes.catalogViewToggle?.addEventListener("click", () => {
-    store.toggleCatalogViewMode();
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !event.isComposing) {
-      const target = event.target;
-      if (isEscapeBlurTarget(target)) {
-        event.preventDefault();
-        event.stopPropagation();
-        pendingQueryBlurIntent = "escape";
-        target.blur();
-      }
-      return;
-    }
-
-    if (event.key === "Delete"
-      && !event.repeat
-      && !event.isComposing
-      && !event.ctrlKey
-      && !event.altKey
-      && !event.metaKey
-    ) {
-      const target = event.target;
-      if (target instanceof HTMLElement && isShortcutEditableTarget(target)) {
-        return;
-      }
-
-      const { filters } = store.getSnapshot();
-      if (!floatingFilterOpen || !isTextAxisMode(filters.axisMode)) {
-        return;
-      }
-
-      const queryInput = nodes.floatingAxisFilter.querySelector('input[data-axis-query]');
-      if (!(queryInput instanceof HTMLInputElement)) {
-        return;
-      }
-
-      event.preventDefault();
-      queryInput.value = "";
-      applyTitleQueryFilter(queryInput, { keepFocus: true, scrollToCatalog: false });
-      return;
-    }
-
-    const shortcutKey = event.key.toLowerCase();
-
-    const catalogShortcutIndex = getCatalogNumberShortcutIndex(event);
-
-    if (catalogShortcutIndex >= 0
-      && !event.repeat
-      && !event.isComposing
-      && !event.ctrlKey
-      && !event.altKey
-      && !event.metaKey
-    ) {
-      const target = event.target;
-      if (target instanceof HTMLElement && isShortcutEditableTarget(target)) {
-        return;
-      }
-
-      if (selectCatalogSongByShortcut(catalogShortcutIndex)) {
-        event.preventDefault();
-      }
-
-      return;
-    }    
-
-    if ((shortcutKey === "a" || shortcutKey === "d")
-      && !event.isComposing
-      && !event.ctrlKey
-      && !event.altKey
-      && !event.metaKey
-    ) {
-      const target = event.target;
-      if (target instanceof HTMLElement && isShortcutEditableTarget(target)) {
-        return;
-      }
-
-      const dateMoved = previewFloatingDateBy(shortcutKey === "a" ? -1 : 1, event.shiftKey ? "end" : "start");
-      if (dateMoved) {
-        openFloatingFilterIfClosed();
-        event.preventDefault();
-        return;
-      }
-
-      const rangeMoved = previewFloatingAxisRangeBy(shortcutKey === "a" ? -1 : 1, event.shiftKey ? "end" : "start");
-      if (rangeMoved) {
-        openFloatingFilterIfClosed();
-        event.preventDefault();
-        return;
-      }
-
-      const moved = previewFloatingAxisSliderBy(shortcutKey === "a" ? -1 : 1);
-      if (!moved) {
-        return;
-      }
-
-      openFloatingFilterIfClosed();
-      event.preventDefault();
-      return;
-    }
-
-    const axisShortcutMode = AXIS_SHORTCUT_KEYS[shortcutKey];
-
-    if (event.repeat
-      || event.isComposing
-      || event.ctrlKey
-      || event.altKey
-      || event.metaKey
-      || (shortcutKey !== "q" && !axisShortcutMode)
-    ) {
-      return;
-    }
-
-    const target = event.target;
-    if (target instanceof HTMLElement && isShortcutEditableTarget(target)) {
-      return;
-    }
-
-    event.preventDefault();
-
-    if (shortcutKey === "q") {
-      toggleFloatingFilter();
-      return;
-    }
-
-    if (axisShortcutMode) {
-      switchFloatingAxisByShortcut(axisShortcutMode);
-    }
-  });
-
-  document.addEventListener("keyup", (event) => {
-    const shortcutKey = event.key.toLowerCase();
-    if (shortcutKey !== "a" && shortcutKey !== "d") {
-      return;
-    }
-
-    if (event.isComposing || event.ctrlKey || event.altKey || event.metaKey) {
-      return;
-    }
-
-    if (floatingDateShortcutPending) {
-      commitFloatingDateShortcut();
-      event.preventDefault();
-      return;
-    }
-
-    if (floatingAxisRangeShortcutPending) {
-      commitFloatingAxisRange();
-      event.preventDefault();
-      return;
-    }
-
-    if (commitFloatingAxisSliderShortcut()) {
-      event.preventDefault();
-    }
-  });  
-
-  [nodes.bpInput, nodes.badInput, nodes.poorInput, nodes.scoreInput].forEach((input) => input?.addEventListener("wheel", (event) => {
-    if (document.activeElement === input) {
-      event.preventDefault();
-      input.blur();
-    }
-  }, { passive: false }));
-
-  [
-    [nodes.bpInput, 4],
-    [nodes.badInput, 4],
-    [nodes.poorInput, 4],
-    [nodes.scoreInput, 5],
-  ].forEach(([input, limit]) => {
-    input?.addEventListener("input", () => {
-      limitNumberInput(input, limit);
-    });
-  });
-
-  nodes.recordForm.addEventListener("keydown", (event) => {
-    focusNextRecordFormField(event, [
-      nodes.lampInput,
-      nodes.bpInput,
-      nodes.badInput,
-      nodes.poorInput,
-      nodes.scoreInput,
-      nodes.memoInput,
-    ]);
-  });
-
-  nodes.recordForm.addEventListener("input", () => {
-    setEntryFormDirty(true);
-  });
-
-  nodes.recordForm.addEventListener("change", () => {
-    setEntryFormDirty(true);
-  });
-
-  nodes.recordForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    if (!entryFormDirty) {
-      return;
-    }
-
-    const bpResult = getEntryBpValue();
-    if (!bpResult.ok) {
-      window.alert(bpResult.message);
-      return;
-    }
-
-    setEntryFormDirty(false);
-
-    const result = store.saveRecord({
-      lamp: nodes.lampInput.value,
-      bp: bpResult.value,
-      score: nodes.scoreInput.value,
-      memo: nodes.memoInput.value,
-    });
-
-    if (result.ok) {
-      clearEntryBpInputs();
-      nodes.scoreInput.value = "";
-    } else {
-      setEntryFormDirty(true);
-      window.alert(result.message);
-    }
-  });
-
-  nodes.bpInputModeButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      setEntryBpInputMode(button.dataset.bpInputMode);
-    });
-  });
-
-  nodes.backToCardButton?.addEventListener("click", () => {
-    scrollSelectedCardIntoView();
-  });
-
-  // 難易度表読み込み失敗時のスキップ機能へ接続
-  async function tryRefreshDifficultyTableForIo(actionLabel) {
-    try {
-      await store.importDifficultyTable();
-      return true;
-    } catch (error) {
-      console.error(`${actionLabel}前の難易度表読み込みに失敗:`, error);
-      return false;
-    }
-  }
-
-  nodes.difficultyImportButton.addEventListener("click", async () => {
-    setButtonLoading(nodes.difficultyImportButton, true, "読み込み中...");
-    lockHeroButtonsExcept(nodes.difficultyImportButton);
-
-    try {
-      const result = await store.importDifficultyTable();
-      window.alert(`難易度表を読み込みました。\n曲数: ${result.titleCount}\n譜面数: ${result.entries.length}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "難易度表の読み込みに失敗しました。";
-      window.alert(message);
-    } finally {
-      clearHeroButtonStates();
-    }
-  });
-
-  nodes.importButton.addEventListener("click", () => {
-    nodes.importFileInput.click();
-  });
-
-  nodes.csvImportButton.addEventListener("click", () => {
-    nodes.csvImportFileInput.click();
-  });
-
-  nodes.csvImportFileInput.addEventListener("change", async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    setButtonLoading(nodes.csvImportButton, true, "読み込み中...");
-    lockHeroButtonsExcept(nodes.csvImportButton);
-
-    try {
-      await tryRefreshDifficultyTableForIo("CSV読み込み");
-
-      const text = await file.text();
-      const result = store.importCsvData(text);
-      window.alert(`CSVを読み込みました。\n取込件数: ${result.count}\n合計件数: ${result.totalCount}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "CSVの読み込みに失敗しました。";
-      window.alert(message);
-    } finally {
-      nodes.csvImportFileInput.value = "";
-      clearHeroButtonStates();
-    }
-  });
-
-  nodes.importFileInput.addEventListener("change", async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    try {
-      const referenceDate = askJsonImportDate();
-      if (referenceDate === null) {
-        return;
-      }
-
-      setButtonLoading(nodes.importButton, true, "読み込み中...");
-      lockHeroButtonsExcept(nodes.importButton);
-
-      await tryRefreshDifficultyTableForIo("JSON読み込み");
-
-      const text = await file.text();
-      const payload = parseImportedJsonText(text);
-      const result = store.importJsonData(payload, referenceDate);
-      window.alert(`JSONを読み込みました。\n取込件数: ${result.count}\n合計件数: ${result.totalCount}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "JSONの読み込みに失敗しました。";
-      window.alert(message);
-    } finally {
-      nodes.importFileInput.value = "";
-      clearHeroButtonStates();
-    }
-  });
-
-  nodes.exportButton.addEventListener("click", async () => {
-    setButtonLoading(nodes.exportButton, true, "書き出し中...");
-    lockHeroButtonsExcept(nodes.exportButton);
-
-    try {
-      await tryRefreshDifficultyTableForIo("JSON書き出し");
-
-      const payload = store.getExportJson();
-      const json = JSON.stringify(payload, null, 2);
-      const blob = new Blob([json], { type: "application/json;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-
-      anchor.href = url;
-      anchor.download = `dbr_data_${formatExportDateStamp()}.json`;
-      anchor.click();
-
-      URL.revokeObjectURL(url);
-    } finally {
-      clearHeroButtonStates();
-    }
-  });
-
-  nodes.csvExportButton.addEventListener("click", async () => {
-    setButtonLoading(nodes.csvExportButton, true, "書き出し中...");
-    lockHeroButtonsExcept(nodes.csvExportButton);
-
-    try {
-      await tryRefreshDifficultyTableForIo("CSV書き出し");
-
-      const csv = store.getExportCsv();
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-
-      anchor.href = url;
-      anchor.download = `dbr_records_${formatExportDateStamp()}.csv`;
-      anchor.click();
-
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "CSVの書き出しに失敗しました。";
-      window.alert(message);
-    } finally {
-      clearHeroButtonStates();
-    }
-  });
-
-  nodes.clearAllButton.addEventListener("click", () => {
-    const confirmed = window.confirm("保存済みのプレー記録をすべて削除します。よろしいですか？");
-    if (!confirmed) {
-      return;
-    }
-
-    const reconfirmed = window.confirm("この操作は取り消せません。本当にすべて削除しますか？");
-    if (!reconfirmed) {
-      return;
-    }
-
-    store.clearAllRecords();
-  });
-
-  // DBR IR送信
-  nodes.sendJsonToIrTestButton?.addEventListener("click", async () => {
-    const targetWindow = openDbrIrImportPage();
-    if (!targetWindow) {
-      return;
-    }
-
-    setButtonLoading(nodes.sendJsonToIrTestButton, true, "送信準備中...");
-    lockHeroButtonsExcept(nodes.sendJsonToIrTestButton);
-
-    try {
-      await tryRefreshDifficultyTableForIo("DBR IR送信");
-
-      const jsonText = JSON.stringify(store.getExportJson(), null, 2);
-      sendJsonToDbrIrPage(targetWindow, jsonText);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "DBR IR送信に失敗しました。";
-      window.alert(message);
-    } finally {
-      clearHeroButtonStates();
-    }
-  });
-
-  document.addEventListener("pointerdown", (event) => {
-    if (!floatingFilterOpen) {
-      return;
-    }
-
-    const target = event.target;
-    if (!(target instanceof Node)) {
-      return;
-    }
-
-    if (target.closest(".floating-filter-panel")) {
-      floatingOutsidePointerState = null;
-      return;
-    }
-
-    floatingOutsidePointerState = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      moved: false,
-    };
-  });
-
-  document.addEventListener("pointermove", (event) => {
-    if (!floatingOutsidePointerState || event.pointerId !== floatingOutsidePointerState.pointerId) {
-      return;
-    }
-
-    const deltaX = Math.abs(event.clientX - floatingOutsidePointerState.startX);
-    const deltaY = Math.abs(event.clientY - floatingOutsidePointerState.startY);
-    if (deltaX > 8 || deltaY > 8) {
-      floatingOutsidePointerState.moved = true;
-    }
-    if (deltaY > 16) {
-      floatingOutsidePointerState = null;
-      closeFloatingFilter({ preserveScroll: true });
-    }    
-  });
-
-  document.addEventListener("pointerup", (event) => {
-    if (!floatingOutsidePointerState || event.pointerId !== floatingOutsidePointerState.pointerId) {
-      return;
-    }
-
-    const moved = floatingOutsidePointerState.moved;
-    floatingOutsidePointerState = null;
-    if (moved) {
-      return;
-    }
-
-    closeFloatingFilter({ preserveScroll: true });
-  });
-
-  document.addEventListener("pointercancel", (event) => {
-    if (!floatingOutsidePointerState || event.pointerId !== floatingOutsidePointerState.pointerId) {
-      return;
-    }
-
-    floatingOutsidePointerState = null;
-    closeFloatingFilter({ preserveScroll: true });
+  bindFloatingOutsideHandlers({
+    getFloatingFilterOpen: () => floatingFilterOpen,
+    closeFloatingFilter,
   });
 
   return {
@@ -3603,17 +1551,17 @@ export function createRenderer(store) {
         appliedFilterSignature = snapshotFilterSignature;
       }
 
-      latestFilterBounds = deriveFilterBoundsComponent(snapshot.songStates);
+      latestFilterBounds = snapshot.filterBounds;
       const summaryBandScrollTop = nodes.summary?.querySelector(".summary-band-chart")?.scrollTop ?? 0;
       renderSummaryComponent(nodes.summary, snapshot.summary, snapshot.summaryFilters, latestFilterBounds, snapshot.filters);
       const summaryBandChart = nodes.summary?.querySelector(".summary-band-chart");
       if (summaryBandChart) {
         summaryBandChart.scrollTop = summaryBandScrollTop;
       }
-      latestHistoryDates = deriveHistoryDatesComponent(snapshot.songStates);
+      latestHistoryDates = snapshot.historyDates;
       latestVisibleCount = snapshot.visibleSongs.length;
       if (nodes.summaryDisplaySelect) {
-        const effectiveSummaryDisplayMode = getEffectiveSummaryDisplayMode(snapshot.filters);
+        const effectiveSummaryDisplayMode = snapshot.effectiveSummaryDisplayMode;
         const canSelectSummaryDisplayMode = snapshot.filters.displayMode === "all";
         nodes.summaryDisplaySelect.disabled = !canSelectSummaryDisplayMode;
         nodes.summaryDisplayField?.toggleAttribute("hidden", !canSelectSummaryDisplayMode);
@@ -3621,7 +1569,7 @@ export function createRenderer(store) {
           nodes.summaryDisplaySelect.value = effectiveSummaryDisplayMode;
         }
       }
-      const effectiveSummaryDisplayMode = getEffectiveSummaryDisplayMode(snapshot.filters);
+      const effectiveSummaryDisplayMode = snapshot.effectiveSummaryDisplayMode;
       syncAnalyticsChartOrder(effectiveSummaryDisplayMode);
       renderFilterDraftPanel();
       renderFloatingFilterShell();
