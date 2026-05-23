@@ -1,33 +1,68 @@
-function parseCsvLine(line) {
-  const values = [];
-  let current = "";
+function parseCsvRows(text) {
+  const source = typeof text === "string" && text.charCodeAt(0) === 0xFEFF ? text.slice(1) : String(text ?? "");
+  const rows = [];
+  let row = [];
+  let cell = "";
   let inQuotes = false;
 
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-    const next = line[index + 1];
+  const flushRow = () => {
+    row.push(cell);
+    cell = "";
+    if (!(row.length === 1 && row[0] === "")) {
+      rows.push(row);
+    }
+    row = [];
+  };
 
-    if (char === '"') {
-      if (inQuotes && next === '"') {
-        current += '"';
-        index += 1;
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (source[index + 1] === '"') {
+          cell += '"';
+          index += 1;
+        } else {
+          inQuotes = false;
+        }
       } else {
-        inQuotes = !inQuotes;
+        cell += char;
       }
       continue;
     }
 
-    if (char === "," && !inQuotes) {
-      values.push(current);
-      current = "";
+    if (char === '"') {
+      inQuotes = true;
       continue;
     }
 
-    current += char;
+    if (char === ",") {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+
+    if (char === "\r") {
+      if (source[index + 1] === "\n") {
+        index += 1;
+      }
+      flushRow();
+      continue;
+    }
+
+    if (char === "\n") {
+      flushRow();
+      continue;
+    }
+
+    cell += char;
   }
 
-  values.push(current);
-  return values;
+  if (cell.length > 0 || row.length > 0) {
+    flushRow();
+  }
+
+  return rows;
 }
 
 function parseNumber(value) {
@@ -137,21 +172,16 @@ function resolveRecordTextageKey(record, difficultyTable) {
 }
 
 export function parseCsv(text) {
-  const normalizedText = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").trim();
-  const lines = normalizedText.split("\n").filter(Boolean);
-
-  if (lines.length === 0) {
+  const rows = parseCsvRows(text);
+  if (rows.length === 0) {
     return [];
   }
 
-  const headers = parseCsvLine(lines[0]);
-  return lines.slice(1).map((line) => {
-    const values = parseCsvLine(line);
-    return headers.reduce((row, header, index) => {
-      row[header] = values[index] ?? "";
-      return row;
-    }, {});
-  });
+  const headers = rows[0];
+  return rows.slice(1).map((values) => headers.reduce((row, header, columnIndex) => {
+    row[header] = values[columnIndex] ?? "";
+    return row;
+  }, {}));
 }
 
 function isMemoOnlyCsvRow(row) {

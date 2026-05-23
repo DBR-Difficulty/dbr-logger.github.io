@@ -2,25 +2,14 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://dbr-difficulty.github.io https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DBR Logger</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <script>
-      (function () {
-        const KEY = "dbr-theme";
-        try {
-          const storedTheme = window.localStorage.getItem(KEY);
-          if (storedTheme === "dark") {
-            document.documentElement.dataset.theme = "dark";
-          }
-        } catch {
-          // ignore
-        }
-      })();
-    </script>
+    <script src="./src/theme-init.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700;800&family=Noto+Sans+JP:wght@400;700;800&display=swap" rel="stylesheet" />
@@ -241,29 +230,6 @@
     </div>
     <div id="floating-axis-filter" class="floating-axis-filter"></div>
 
-    <script type="module">
-      async function resolveBuildVersion() {
-        try {
-          const response = await fetch(`./version.json?ts=${Date.now()}`, { cache: "no-store" });
-          if (!response.ok) {
-            return "";
-          }
-
-          const payload = await response.json();
-          return typeof payload?.build === "string" ? payload.build.trim() : "";
-        } catch {
-          return "";
-        }
-      }
-
-      const buildVersion = await resolveBuildVersion();
-      window.__DBR_BUILD_VERSION__ = buildVersion;
-
-      if (buildVersion) {
-        await import(`./src/main.js?v=${encodeURIComponent(buildVersion)}`);
-      } else {
-        await import("./src/main.js");
-      }
-    </script>
+    <script type="module" src="./src/bootstrap.js"></script>
   </body>
 </html>

@@ -5,6 +5,13 @@ const { todayIso } = await import(`../../utils/date.js${MODULE_VERSION}`);
 const DBR_IR_IMPORT_TEST_URL = "https://dbr-difficulty.github.io/dbr_ir_from_logger.html";
 const DBR_IR_IMPORT_TEST_ORIGIN = "https://dbr-difficulty.github.io";
 
+const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
+const FILE_SIZE_LIMIT_MESSAGE = "ファイルサイズが大きすぎます。5MB以下のCSV/JSONファイルを選択してください。";
+
+function isImportFileSizeOk(file) {
+  return Number.isFinite(file?.size) && file.size <= MAX_IMPORT_FILE_BYTES;
+}
+
 function openDbrIrImportPage() {
   const targetUrl = new URL(DBR_IR_IMPORT_TEST_URL, window.location.href);
   const targetWindow = window.open(targetUrl.href, "_blank");
@@ -291,6 +298,12 @@ export function bindIoHandlers({
       return;
     }
 
+    if (!isImportFileSizeOk(file)) {
+      window.alert(FILE_SIZE_LIMIT_MESSAGE);
+      nodes.csvImportFileInput.value = "";
+      return;
+    }
+
     setButtonLoading(nodes.csvImportButton, true, "読み込み中...");
     lockHeroButtonsExcept(nodes.csvImportButton);
 
@@ -312,6 +325,12 @@ export function bindIoHandlers({
   nodes.importFileInput.addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
     if (!file) {
+      return;
+    }
+
+    if (!isImportFileSizeOk(file)) {
+      window.alert(FILE_SIZE_LIMIT_MESSAGE);
+      nodes.importFileInput.value = "";
       return;
     }
 
