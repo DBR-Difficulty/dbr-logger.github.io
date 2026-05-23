@@ -3366,7 +3366,7 @@ html[data-theme="dark"] .manual-mini-card {
 
 @media (max-width: 720px) {
   .manual-page {
-    padding: 16px 12px 32px;
+    padding: 16px 12px 2px;
   }
 
   .manual-content > h1 {
