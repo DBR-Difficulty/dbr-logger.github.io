@@ -4,3 +4,7 @@
 /spec.md
 /favicon.png
 /dbr-ir-receiver-test.html
+/node_modules/
+/.claude/
+/package-lock.json
+/package.json
