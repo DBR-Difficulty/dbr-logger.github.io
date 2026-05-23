@@ -377,7 +377,7 @@ function createSummaryBands(summary) {
   if (!summary.bands.length) {
     const empty = document.createElement("div");
     empty.className = "summary-chart-empty empty-state";
-    empty.textContent = summary.emptyMessage ?? "難易度表が未読み込みです。";
+    empty.textContent = summary.emptyMessage ?? "難易度表が読み込まれていません。";
     return empty;
   }
 
