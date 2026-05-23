@@ -581,8 +581,6 @@ export function createRenderer(store) {
   function isShortcutEditableTarget(element) {
     return element instanceof HTMLInputElement
       || element instanceof HTMLTextAreaElement
-      // || element instanceof HTMLSelectElement
-      // || element instanceof HTMLButtonElement
       || Boolean(element instanceof HTMLElement && element.isContentEditable);
   }
 
@@ -707,8 +705,6 @@ export function createRenderer(store) {
       nodes.lampInput?.focus({ preventScroll: true });
     });
 
-    // ショートカット操作時はスクロールしない
-    // window.requestAnimationFrame(scrollEntryPanelIntoView);
     return true;
   }  
 

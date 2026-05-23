@@ -1,5 +1,3 @@
-/// HTMLエスケープ関数
-
 export function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")

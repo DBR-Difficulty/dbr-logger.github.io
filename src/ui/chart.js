@@ -281,7 +281,6 @@ function attachChartInteraction(svg, points, padding, height, getValue) {
   svg.addEventListener("touchmove", handleTouchMove, { passive: false });
 }
 
-// データポイントの位置に合わせて年の区切りを描画する
 function isJanuaryFirst(date) {
   return typeof date === "string" && /^\d{4}-01-01$/.test(date);
 }
@@ -477,9 +476,6 @@ function renderTrendChart(container, history, options) {
     if (index !== 0 && index !== domainHistory.length - 1) {
       return "";
     }
-    // if (!Boolean(labelIndices.get(index))) {
-    //   return "";
-    // }
     return `<text class="chart-axis-text" x="${point.x}" y="${height - 46}" dominant-baseline="hanging" text-anchor="middle">${formatIsoDate(point.date).slice(5)}</text>`;
   }).join("");
 
@@ -507,7 +503,6 @@ function renderTrendChart(container, history, options) {
   const pointMarkup = points.map((point, index) => {
     const labelRole = labelIndices.get(index);
     const shouldShowLabel = Boolean(labelRole);
-    // const shouldShowLabel = true; // 全てのポイントにラベルを表示する場合はこちらを使用
     const placement = shouldShowLabel
       ? chooseLabelPlacement(points, index, labelRole, padding, innerHeight)
       : null;

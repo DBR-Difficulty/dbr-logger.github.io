@@ -2,7 +2,6 @@ const MODULE_VERSION = new URL(import.meta.url).search;
 
 const { todayIso } = await import(`../../utils/date.js${MODULE_VERSION}`);
 
-// DBR IR送信
 const DBR_IR_IMPORT_TEST_URL = "https://dbr-difficulty.github.io/dbr_ir_from_logger.html";
 const DBR_IR_IMPORT_TEST_ORIGIN = "https://dbr-difficulty.github.io";
 
