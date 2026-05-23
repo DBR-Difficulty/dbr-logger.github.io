@@ -1,4 +1,8 @@
 const DIFFICULTY_TABLE_STALE_MS = 12 * 60 * 60 * 1000;
+const MODULE_VERSION = new URL(import.meta.url).search;
+
+const { datasetValueMatches, decodeDatasetValue } = await import(`../dataset.js${MODULE_VERSION}`);
+
 export const THEME_STORAGE_KEY = "dbr-theme";
 export const SUMMARY_FILTERS_OPEN_STORAGE_KEY = "dbr-summary-filters-open";
 
@@ -321,7 +325,9 @@ export function createScrollController({
   function scrollSelectedCardIntoView() {
     const encodedCatalogKey = nodes.selectedSong?.dataset.catalogKey;
     if (encodedCatalogKey) {
-      const card = nodes.catalog?.querySelector(`[data-catalog-key="${encodedCatalogKey}"]`);
+      const catalogKey = decodeDatasetValue(encodedCatalogKey);
+      const card = Array.from(nodes.catalog?.querySelectorAll(".song-card") ?? [])
+        .find((item) => datasetValueMatches(item.dataset.catalogKey, catalogKey));
       if (card) {
         scrollElementIntoView(card);
         return;
@@ -333,7 +339,9 @@ export function createScrollController({
       return;
     }
 
-    const card = nodes.catalog?.querySelector(`[data-title="${encodedTitle}"]`);
+    const title = decodeDatasetValue(encodedTitle);
+    const card = Array.from(nodes.catalog?.querySelectorAll(".song-card") ?? [])
+      .find((item) => datasetValueMatches(item.dataset.title, title));
     if (card) {
       scrollElementIntoView(card);
     }

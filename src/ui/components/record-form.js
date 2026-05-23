@@ -3,6 +3,7 @@ const MODULE_VERSION = new URL(import.meta.url).search;
 const { LAMP_OPTIONS } = await import(`../../constants.js${MODULE_VERSION}`);
 const { formatIsoDate, todayIso } = await import(`../../utils/date.js${MODULE_VERSION}`);
 const { escapeHtml } = await import(`../../utils/html.js${MODULE_VERSION}`);
+const { encodeDatasetValue } = await import(`../dataset.js${MODULE_VERSION}`);
 
 const ENTRY_BP_INPUT_MODE_STORAGE_KEY = "dbr-entry-bp-input-mode";
 export const ENTRY_BP_INPUT_MODES = new Set(["bp", "split"]);
@@ -189,8 +190,8 @@ export function syncRecordFormWithSnapshot(nodes, snapshot, options = {}) {
   }
 
   if (snapshot.selectedSong) {
-    const selectedTitle = encodeURIComponent(snapshot.selectedSong.title);
-    const selectedCatalogKey = snapshot.selectedCatalogKey ? encodeURIComponent(snapshot.selectedCatalogKey) : "";
+    const selectedTitle = encodeDatasetValue(snapshot.selectedSong.title);
+    const selectedCatalogKey = snapshot.selectedCatalogKey ? encodeDatasetValue(snapshot.selectedCatalogKey) : "";
     const nextBpPlaceholder = formatBpPlaceholder(snapshot.selectedSong);
     const nextScorePlaceholder = formatScorePlaceholder(snapshot.selectedSong);
     const nextMemoValue = snapshot.selectedSong.note ?? "";

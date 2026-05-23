@@ -1,3 +1,34 @@
+const MODULE_VERSION = new URL(import.meta.url).search;
+
+const { datasetValueMatches, decodeDatasetValue } = await import(`../dataset.js${MODULE_VERSION}`);
+
+function getCatalogItemKey(song) {
+  return song?.catalogItemKey || `title:${song?.title ?? ""}`;
+}
+
+function resolveCatalogSelectionFromDataset(button, store) {
+  const rawTitle = button.dataset.title ?? "";
+  const rawCatalogKey = button.dataset.catalogKey ?? "";
+  const snapshot = store.getSnapshot();
+  const songs = snapshot.visibleSongs ?? snapshot.pagedSongs ?? [];
+  const catalogItem = rawCatalogKey
+    ? songs.find((song) => datasetValueMatches(rawCatalogKey, getCatalogItemKey(song)))
+    : null;
+  const titleItem = catalogItem ?? songs.find((song) => datasetValueMatches(rawTitle, song.title));
+
+  if (titleItem) {
+    return {
+      title: titleItem.title,
+      catalogItemKey: rawCatalogKey ? getCatalogItemKey(titleItem) : null,
+    };
+  }
+
+  return {
+    title: decodeDatasetValue(rawTitle),
+    catalogItemKey: rawCatalogKey ? decodeDatasetValue(rawCatalogKey) : null,
+  };
+}
+
 export function bindCatalogHandlers({
   nodes,
   store,
@@ -10,10 +41,8 @@ export function bindCatalogHandlers({
     if (!button) {
       return;
     }
-    store.selectSong(
-      decodeURIComponent(button.dataset.title),
-      button.dataset.catalogKey ? decodeURIComponent(button.dataset.catalogKey) : null,
-    );
+    const selection = resolveCatalogSelectionFromDataset(button, store);
+    store.selectSong(selection.title, selection.catalogItemKey);
     window.requestAnimationFrame(scrollEntryPanelIntoView);
   });
 

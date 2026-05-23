@@ -372,7 +372,11 @@ function renderTrendChart(container, history, options) {
   const showYAxisTicks = options.showYAxisTicks !== false;
 
   if (!history || history.length === 0) {
-    container.innerHTML = `<div class="empty-state">${options.emptyMessage}</div>`;
+    container.replaceChildren();
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = options.emptyMessage;
+    container.appendChild(empty);
     return;
   }
 
@@ -403,7 +407,11 @@ function renderTrendChart(container, history, options) {
   ));
 
   if (chartHistory.length === 0) {
-    container.innerHTML = `<div class="empty-state">${options.emptyMessage}</div>`;
+    container.replaceChildren();
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = options.emptyMessage;
+    container.appendChild(empty);
     return;
   }
 

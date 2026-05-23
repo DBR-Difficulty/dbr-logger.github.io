@@ -1301,8 +1301,9 @@ export function createStore() {
         }
       : state.filters;
     let filteredVisibleSongs = songStates.filter((entry) => matchesFiltersFor(entry, catalogBaseFilters));
+    const hasTitleSearch = state.filters.axisMode === "title" && state.filters.titleQuery.trim();
 
-    if (state.filters.axisMode === "title" && state.filters.titleQuery.trim()) {
+    if (hasTitleSearch && state.sortMode !== "chartDifficulty") {
       const songOrder = new Map(songStates.map((song, index) => [song.title, index]));
 
       filteredVisibleSongs.sort((a, b) => {
@@ -1356,6 +1357,19 @@ export function createStore() {
         effectiveRecommendSortHead,
         effectiveChartDifficultySortDirection,
       ));
+    }
+
+    if (hasTitleSearch && state.sortMode === "chartDifficulty") {
+      const songOrder = new Map(filteredVisibleSongs.map((song, index) => [song.title, index]));
+
+      filteredVisibleSongs.sort((a, b) => {
+        const priority = compareVisibleSongPriorityForFilters(a, b, state.filters);
+        if (priority !== 0) {
+          return priority;
+        }
+
+        return (songOrder.get(a.title) ?? 0) - (songOrder.get(b.title) ?? 0);
+      });
     }
 
     const directionAdjustedVisibleSongs = applySortDirectionFallbackIfNoPrimaryEffect(

@@ -1,7 +1,6 @@
 const MODULE_VERSION = new URL(import.meta.url).search;
 
 const { formatIsoDate } = await import(`../../utils/date.js${MODULE_VERSION}`);
-const { escapeHtml } = await import(`../../utils/html.js${MODULE_VERSION}`);
 
 const CHART_DIFFICULTY_OPTIONS = ["B", "N", "H", "A", "L"];
 const RECOMMEND_SORT_VALUES = ["☆", "◎", "○", "△", ""];
@@ -221,63 +220,110 @@ function formatCatalogPagePrimaryValue(song, sortMode) {
   return "";
 }
 
-function renderCatalogPageItemLabel(song, sortMode) {
+function createCatalogPageItemLabel(song, sortMode) {
+  const fragment = document.createDocumentFragment();
   if (!song) {
-    return '<span class="pagination-range-title">-</span>';
+    const title = document.createElement("span");
+    title.className = "pagination-range-title";
+    title.textContent = "-";
+    fragment.appendChild(title);
+    return fragment;
   }
 
-  const title = sortMode === "chartDifficulty"
+  const titleText = sortMode === "chartDifficulty"
     ? splitTitleAndSuffix(song.title).baseTitle
     : song.title;
 
   const primaryValue = formatCatalogPagePrimaryValue(song, sortMode);
-  const primaryMarkup = primaryValue
-    ? `<span class="pagination-range-primary">(${escapeHtml(primaryValue)})</span>`
-    : "";
-  return `
-    <span class="pagination-range-title">${escapeHtml(title)}</span>
-    ${primaryMarkup}
-  `;
+  const title = document.createElement("span");
+  title.className = "pagination-range-title";
+  title.textContent = titleText;
+  fragment.appendChild(title);
+
+  if (primaryValue) {
+    const primary = document.createElement("span");
+    primary.className = "pagination-range-primary";
+    primary.textContent = `(${primaryValue})`;
+    fragment.appendChild(primary);
+  }
+
+  return fragment;
 }
 
 export function renderPagination(container, pagination, options = {}) {
+  container.replaceChildren();
+
   if (pagination.totalItems === 0) {
-    container.innerHTML = "";
     return;
   }
 
-  const prevDisabled = pagination.currentPage <= 1 ? "disabled" : "";
-  const nextDisabled = pagination.currentPage >= pagination.totalPages ? "disabled" : "";
   const chartDifficultyHead = CHART_DIFFICULTY_OPTIONS.includes(options.chartDifficultySortHead)
     ? options.chartDifficultySortHead
     : CHART_DIFFICULTY_OPTIONS[0];
-  const sortHeadButton = options.showSortDirectionToggle && options.sortMode === "chartDifficulty"
-    ? `<button class="button button-tertiary chart-difficulty-head-button" type="button" data-chart-difficulty-head-toggle aria-label="先頭の譜面難易度を切り替え">${escapeHtml(chartDifficultyHead)}</button>`
-    : options.showSortDirectionToggle && options.sortMode === "recommend"
-      ? `<button class="button button-tertiary chart-difficulty-head-button" type="button" data-recommend-head-toggle aria-label="先頭のおすすめ度を切り替え">${escapeHtml(formatRecommendSortHead(options.recommendSortHead))}</button>`
-    : "";
-  const sortDirectionButton = options.showSortDirectionToggle && options.sortMode !== "chartDifficulty" && options.sortMode !== "recommend"
-    ? `<button class="button button-tertiary catalog-sort-control-button" type="button" data-sort-direction-toggle aria-label="${options.sortMode === "random" ? "ランダム順を変更" : "並び順の昇順降順を切り替え"}">${options.sortMode === "random" ? "？" : (options.sortDirection === "desc" ? "▼" : "▲")}</button>`
-    : "";
   const currentPageRange = (pagination.pageRanges ?? []).find((range) => range.page === pagination.currentPage)
     ?? pagination.pageRanges?.[0]
     ?? null;
-  const firstPageLabel = renderCatalogPageItemLabel(currentPageRange?.first, options.sortMode);
-  const lastPageLabel = renderCatalogPageItemLabel(currentPageRange?.last, options.sortMode);
 
-  container.innerHTML = `
-    <div class="pagination-wrap">
-      <div class="pagination-label">
-        <div class="pagination-range-item">${firstPageLabel}</div>
-        <div class="pagination-range-separator">～</div>
-        <div class="pagination-range-item">${lastPageLabel}</div>
-      </div>
-      <div class="pagination-controls">
-        ${sortHeadButton}
-        ${sortDirectionButton}
-        <button class="button button-tertiary" type="button" data-page="prev" ${prevDisabled}>前へ</button>
-        <button class="button button-tertiary" type="button" data-page="next" ${nextDisabled}>次へ</button>
-      </div>
-    </div>
-  `;
+  const wrap = document.createElement("div");
+  wrap.className = "pagination-wrap";
+
+  const label = document.createElement("div");
+  label.className = "pagination-label";
+  const firstItem = document.createElement("div");
+  firstItem.className = "pagination-range-item";
+  firstItem.appendChild(createCatalogPageItemLabel(currentPageRange?.first, options.sortMode));
+  const separator = document.createElement("div");
+  separator.className = "pagination-range-separator";
+  separator.textContent = "～";
+  const lastItem = document.createElement("div");
+  lastItem.className = "pagination-range-item";
+  lastItem.appendChild(createCatalogPageItemLabel(currentPageRange?.last, options.sortMode));
+  label.append(firstItem, separator, lastItem);
+
+  const controls = document.createElement("div");
+  controls.className = "pagination-controls";
+
+  if (options.showSortDirectionToggle && options.sortMode === "chartDifficulty") {
+    const button = document.createElement("button");
+    button.className = "button button-tertiary chart-difficulty-head-button";
+    button.type = "button";
+    button.dataset.chartDifficultyHeadToggle = "";
+    button.setAttribute("aria-label", "先頭の譜面難易度を切り替え");
+    button.textContent = chartDifficultyHead;
+    controls.appendChild(button);
+  } else if (options.showSortDirectionToggle && options.sortMode === "recommend") {
+    const button = document.createElement("button");
+    button.className = "button button-tertiary chart-difficulty-head-button";
+    button.type = "button";
+    button.dataset.recommendHeadToggle = "";
+    button.setAttribute("aria-label", "先頭のおすすめ度を切り替え");
+    button.textContent = formatRecommendSortHead(options.recommendSortHead);
+    controls.appendChild(button);
+  } else if (options.showSortDirectionToggle) {
+    const button = document.createElement("button");
+    button.className = "button button-tertiary catalog-sort-control-button";
+    button.type = "button";
+    button.dataset.sortDirectionToggle = "";
+    button.setAttribute("aria-label", options.sortMode === "random" ? "ランダム順を変更" : "並び順の昇順降順を切り替え");
+    button.textContent = options.sortMode === "random" ? "？" : (options.sortDirection === "desc" ? "▼" : "▲");
+    controls.appendChild(button);
+  }
+
+  const prevButton = document.createElement("button");
+  prevButton.className = "button button-tertiary";
+  prevButton.type = "button";
+  prevButton.dataset.page = "prev";
+  prevButton.disabled = pagination.currentPage <= 1;
+  prevButton.textContent = "前へ";
+
+  const nextButton = document.createElement("button");
+  nextButton.className = "button button-tertiary";
+  nextButton.type = "button";
+  nextButton.dataset.page = "next";
+  nextButton.disabled = pagination.currentPage >= pagination.totalPages;
+  nextButton.textContent = "次へ";
+
+  controls.append(prevButton, nextButton);
+  wrap.append(label, controls);
+  container.appendChild(wrap);
 }

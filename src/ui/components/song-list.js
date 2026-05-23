@@ -1,7 +1,7 @@
 const MODULE_VERSION = new URL(import.meta.url).search;
 
 const { formatIsoDate } = await import(`../../utils/date.js${MODULE_VERSION}`);
-const { escapeHtml } = await import(`../../utils/html.js${MODULE_VERSION}`);
+const { encodeDatasetValue } = await import(`../dataset.js${MODULE_VERSION}`);
 
 const LAMP_COLORS = {
   "NO PLAY": "var(--lamp-no-play)",
@@ -35,8 +35,27 @@ const getCardBandColor = (song, summaryDisplayMode = "clear") => (
     : getCardLampColor(song?.bestLamp)
 );
 
-function badge(label, className) {
-  return `<span class="pill ${className}">${escapeHtml(label)}</span>`;
+function createBadge(label, className) {
+  const badge = document.createElement("span");
+  badge.className = `pill ${className}`;
+  badge.textContent = label;
+  return badge;
+}
+
+function appendBadge(parent, label, className) {
+  parent.appendChild(createBadge(label, className));
+}
+
+function appendTitleWithSuffix(parent, title, suffix) {
+  parent.append(document.createTextNode(title));
+  if (!suffix) {
+    return;
+  }
+
+  const suffixNode = document.createElement("span");
+  suffixNode.className = "song-card-title-katate";
+  suffixNode.textContent = suffix;
+  parent.appendChild(suffixNode);
 }
 
 function formatDifficultyLabel(song) {
@@ -129,13 +148,14 @@ function formatScoreRankDisplay(value) {
 }
 
 function getPrimaryResultBadge(song) {
-  const lampBadge = song?.displayMode !== "score"
-    ? badge(song.bestLamp, "pill-lamp")
-    : "";
-  const scoreBadge = song?.displayMode === "score" || song?.displayMode === "all"
-    ? badge(formatScoreRankDisplay(song.scoreRank), "pill-lamp")
-    : "";
-  return [lampBadge, scoreBadge].filter(Boolean).join("");
+  const badges = [];
+  if (song?.displayMode !== "score") {
+    badges.push([song.bestLamp, "pill-lamp"]);
+  }
+  if (song?.displayMode === "score" || song?.displayMode === "all") {
+    badges.push([formatScoreRankDisplay(song.scoreRank), "pill-lamp"]);
+  }
+  return badges;
 }
 
 function moveFirstItemToFront(items, target) {
@@ -149,19 +169,19 @@ function moveFirstItemToFront(items, target) {
 
 function getSupplementalBadges(song, sortMode = "", summaryDisplayMode = "clear") {
   const bpBadge = song?.displayMode !== "score"
-    ? badge(`BP ${formatBp(song.bestBp)}/${formatBp(song.currentBp)}`, "pill-neutral")
-    : "";
+    ? [`BP ${formatBp(song.bestBp)}/${formatBp(song.currentBp)}`, "pill-neutral"]
+    : null;
   const scoreBadge = song?.displayMode === "score" || song?.displayMode === "all"
     ? (() => {
         const bestScoreLabel = formatScoreRankDisplay(song.bestScoreLabel);
         const currentScoreLabel = formatScoreRankDisplay(song.currentScoreLabel);
-        return badge(bestScoreLabel === "※" ? "※" : `${bestScoreLabel}/${currentScoreLabel}`, "pill-neutral");
+        return [bestScoreLabel === "※" ? "※" : `${bestScoreLabel}/${currentScoreLabel}`, "pill-neutral"];
       })()
-    : "";
-  const dateBadge = badge(song.latestDate ? formatIsoDate(song.latestDate).slice(5) : "履歴なし", "pill-neutral");
+    : null;
+  const dateBadge = [song.latestDate ? formatIsoDate(song.latestDate).slice(5) : "履歴なし", "pill-neutral"];
   const historyBadge = song.entryCount > 0
-    ? badge(`履歴 ${song.entryCount} 件`, "pill-neutral")
-    : "";
+    ? [`履歴 ${song.entryCount} 件`, "pill-neutral"]
+    : null;
   const defaultBadges = summaryDisplayMode === "score"
     ? [scoreBadge, bpBadge, dateBadge, historyBadge]
     : [bpBadge, scoreBadge, dateBadge, historyBadge];
@@ -177,7 +197,7 @@ function getSupplementalBadges(song, sortMode = "", summaryDisplayMode = "clear"
     badges = moveFirstItemToFront(defaultBadges, historyBadge || dateBadge);
   }
 
-  return badges.filter(Boolean).join("");
+  return badges.filter(Boolean);
 }
 
 function getBpOrScoreMetaTextBySort(song, sortMode = "", summaryDisplayMode = "clear") {
@@ -212,108 +232,160 @@ function getBpOrScoreMetaTextBySort(song, sortMode = "", summaryDisplayMode = "c
 export function renderSelectedSong(selectedSongContainer, selectedSong, songs, options = {}) {
   selectedSongContainer.classList.remove("is-proposed");
   selectedSongContainer.style.removeProperty("--card-lamp-color");
+  selectedSongContainer.replaceChildren();
 
   if (!selectedSong || songs.length === 0) {
-    selectedSongContainer.innerHTML = '<div class="empty-state">表示できる曲がありません。</div>';
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = "表示できる曲がありません。";
+    selectedSongContainer.appendChild(empty);
     return;
   }
 
   selectedSongContainer.classList.toggle("is-proposed", Boolean(selectedSong.isProposed));
   selectedSongContainer.style.setProperty("--card-lamp-color", getCardBandColor(selectedSong, options.summaryDisplayMode));
 
-  const historyCountBadge = selectedSong.entryCount > 0
-    ? badge(`履歴 ${selectedSong.entryCount} 件`, "pill-neutral")
-    : "";
   const katateTitleSuffix = formatSortTitleSuffix(selectedSong, options.sortMode, options.axisMode);
-  const katateTitleSuffixHtml = katateTitleSuffix
-    ? `<span class="song-card-title-katate">${escapeHtml(katateTitleSuffix)}</span>`
-    : "";
 
-  selectedSongContainer.innerHTML = `
-    <p class="eyebrow selected-song-eyebrow">Selected Song</p>
-    <div class="selected-song-meta">
-      <div class="selected-song-meta-row">
-        ${selectedSong.isProposed ? badge("新規提案中", "pill-proposed") : ""}
-        ${badge(formatDifficultyLabel(selectedSong), "pill-level")}
-        ${formatSplvLabel(selectedSong) ? badge(formatSplvLabel(selectedSong), "pill-splv") : ""}
-        ${getPrimaryResultBadge(selectedSong)}
-      </div>
-    </div>
-    <h3 class="selected-song-title">${escapeHtml(selectedSong.title)}${katateTitleSuffixHtml}</h3>
-    <p class="selected-song-note">${escapeHtml(formatSongMemoDisplay(selectedSong))}</p>
-    <div class="selected-song-meta">
-      <div class="selected-song-meta-row">
-        ${getSupplementalBadges(selectedSong, options.sortMode, options.summaryDisplayMode)}
-      </div>
-    </div>
-  `;
+  const eyebrow = document.createElement("p");
+  eyebrow.className = "eyebrow selected-song-eyebrow";
+  eyebrow.textContent = "Selected Song";
+
+  const topMeta = document.createElement("div");
+  topMeta.className = "selected-song-meta";
+  const topRow = document.createElement("div");
+  topRow.className = "selected-song-meta-row";
+  if (selectedSong.isProposed) {
+    appendBadge(topRow, "新規提案中", "pill-proposed");
+  }
+  appendBadge(topRow, formatDifficultyLabel(selectedSong), "pill-level");
+  const splvLabel = formatSplvLabel(selectedSong);
+  if (splvLabel) {
+    appendBadge(topRow, splvLabel, "pill-splv");
+  }
+  getPrimaryResultBadge(selectedSong).forEach(([label, className]) => appendBadge(topRow, label, className));
+  topMeta.appendChild(topRow);
+
+  const title = document.createElement("h3");
+  title.className = "selected-song-title";
+  appendTitleWithSuffix(title, selectedSong.title, katateTitleSuffix);
+
+  const note = document.createElement("p");
+  note.className = "selected-song-note";
+  note.textContent = formatSongMemoDisplay(selectedSong);
+
+  const bottomMeta = document.createElement("div");
+  bottomMeta.className = "selected-song-meta";
+  const bottomRow = document.createElement("div");
+  bottomRow.className = "selected-song-meta-row";
+  getSupplementalBadges(selectedSong, options.sortMode, options.summaryDisplayMode)
+    .forEach(([label, className]) => appendBadge(bottomRow, label, className));
+  bottomMeta.appendChild(bottomRow);
+
+  selectedSongContainer.append(eyebrow, topMeta, title, note, bottomMeta);
 }
 
 export function renderCatalog(catalogContainer, songs, selectedTitle, options = {}) {
   catalogContainer.classList.toggle("is-list-view", options.viewMode === "list");
+  catalogContainer.replaceChildren();
 
   if (songs.length === 0) {
-    catalogContainer.innerHTML = '<div class="empty-state">該当する曲がありません。</div>';
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = "該当する曲がありません。";
+    catalogContainer.appendChild(empty);
     return;
   }
 
-  catalogContainer.innerHTML = songs.map((song) => {
+  const fragment = document.createDocumentFragment();
+  songs.forEach((song) => {
     const catalogItemKey = song.catalogItemKey || `title:${song.title}`;
     const selectedClass = options.selectedCatalogKey
-      ? (catalogItemKey === options.selectedCatalogKey ? "is-selected" : "")
-      : (song.title === selectedTitle ? "is-selected" : "");
-    const proposedClass = song.isProposed ? "is-proposed" : "";
-    const deletedRecordClass = song.isDeletedRecordScopedCard ? "is-deleted-record" : "";
-    const encodedTitle = encodeURIComponent(song.title);
-    const encodedCatalogItemKey = encodeURIComponent(catalogItemKey);
+      ? catalogItemKey === options.selectedCatalogKey
+      : song.title === selectedTitle;
+    const encodedTitle = encodeDatasetValue(song.title);
+    const encodedCatalogItemKey = encodeDatasetValue(catalogItemKey);
     const lampColor = getCardBandColor(song, options.summaryDisplayMode);
-    const historyCountBadge = song.entryCount > 0
-      ? badge(`履歴 ${song.entryCount} 件`, "pill-neutral")
-      : "";
     const katateTitleSuffix = formatSortTitleSuffix(song, options.sortMode, options.axisMode);
-    const katateTitleSuffixHtml = katateTitleSuffix
-      ? `<span class="song-card-title-katate">${escapeHtml(katateTitleSuffix)}</span>`
-      : "";
+
+    const button = document.createElement("button");
+    button.className = "song-card";
+    if (selectedClass) {
+      button.classList.add("is-selected");
+    }
+    if (song.isProposed) {
+      button.classList.add("is-proposed");
+    }
+    if (song.isDeletedRecordScopedCard) {
+      button.classList.add("is-deleted-record");
+    }
+    button.type = "button";
+    button.dataset.title = encodedTitle;
+    button.dataset.catalogKey = encodedCatalogItemKey;
+    button.style.setProperty("--card-lamp-color", lampColor);
 
     if (options.viewMode === "list") {
       const listMetaCore = getBpOrScoreMetaTextBySort(song, options.sortMode, options.summaryDisplayMode);
       const splvMeta = formatSplvLabel(song);
       const listMetaText = [splvMeta, listMetaCore].filter(Boolean).join(", ");
 
-      return `
-        <button class="song-card ${selectedClass} ${proposedClass} ${deletedRecordClass}" type="button" data-title="${encodedTitle}" data-catalog-key="${encodedCatalogItemKey}" style="--card-lamp-color:${escapeHtml(lampColor)}">
-          <p class="song-card-title">
-            <span class="song-card-list-title-tags">
-              ${badge(formatDifficultyLabel(song), "pill-level")}
-            </span>
-            <span class="song-card-list-title-text">${escapeHtml(song.title)}${katateTitleSuffixHtml}</span>
-          </p>
-          <p class="song-card-note">
-            <span>${escapeHtml(formatSongMemoDisplay(song))}</span>
-            <span class="song-card-list-meta-text">${escapeHtml(listMetaText)}</span>
-          </p>
-        </button>
-      `;
+      const title = document.createElement("p");
+      title.className = "song-card-title";
+      const tags = document.createElement("span");
+      tags.className = "song-card-list-title-tags";
+      appendBadge(tags, formatDifficultyLabel(song), "pill-level");
+      const titleText = document.createElement("span");
+      titleText.className = "song-card-list-title-text";
+      appendTitleWithSuffix(titleText, song.title, katateTitleSuffix);
+      title.append(tags, titleText);
+
+      const note = document.createElement("p");
+      note.className = "song-card-note";
+      const noteText = document.createElement("span");
+      noteText.textContent = formatSongMemoDisplay(song);
+      const metaText = document.createElement("span");
+      metaText.className = "song-card-list-meta-text";
+      metaText.textContent = listMetaText;
+      note.append(noteText, metaText);
+
+      button.append(title, note);
+      fragment.appendChild(button);
+      return;
     }
 
-    return `
-      <button class="song-card ${selectedClass} ${proposedClass} ${deletedRecordClass}" type="button" data-title="${encodedTitle}" data-catalog-key="${encodedCatalogItemKey}" style="--card-lamp-color:${escapeHtml(lampColor)}">
-        <div class="song-card-meta">
-          <div class="song-card-meta-row">
-            ${song.isProposed ? badge("新規提案中", "pill-proposed") : ""}
-            ${badge(formatDifficultyLabel(song), "pill-level")}
-            ${formatSplvLabel(song) ? badge(formatSplvLabel(song), "pill-splv") : ""}
-            ${getPrimaryResultBadge(song)}
-          </div>
-        </div>
-        <p class="song-card-title">${escapeHtml(song.title)}${katateTitleSuffixHtml}</p>
-        <p class="song-card-note">${escapeHtml(formatSongMemoDisplay(song))}</p>
-        <div class="song-card-meta">
-          <div class="song-card-meta-row">
-            ${getSupplementalBadges(song, options.sortMode, options.summaryDisplayMode)}
-          </div>
-        </div>
-      </button>
-    `;
-  }).join("");
+    const topMeta = document.createElement("div");
+    topMeta.className = "song-card-meta";
+    const topRow = document.createElement("div");
+    topRow.className = "song-card-meta-row";
+    if (song.isProposed) {
+      appendBadge(topRow, "新規提案中", "pill-proposed");
+    }
+    appendBadge(topRow, formatDifficultyLabel(song), "pill-level");
+    const splvLabel = formatSplvLabel(song);
+    if (splvLabel) {
+      appendBadge(topRow, splvLabel, "pill-splv");
+    }
+    getPrimaryResultBadge(song).forEach(([label, className]) => appendBadge(topRow, label, className));
+    topMeta.appendChild(topRow);
+
+    const title = document.createElement("p");
+    title.className = "song-card-title";
+    appendTitleWithSuffix(title, song.title, katateTitleSuffix);
+
+    const note = document.createElement("p");
+    note.className = "song-card-note";
+    note.textContent = formatSongMemoDisplay(song);
+
+    const bottomMeta = document.createElement("div");
+    bottomMeta.className = "song-card-meta";
+    const bottomRow = document.createElement("div");
+    bottomRow.className = "song-card-meta-row";
+    getSupplementalBadges(song, options.sortMode, options.summaryDisplayMode)
+      .forEach(([label, className]) => appendBadge(bottomRow, label, className));
+    bottomMeta.appendChild(bottomRow);
+
+    button.append(topMeta, title, note, bottomMeta);
+    fragment.appendChild(button);
+  });
+  catalogContainer.appendChild(fragment);
 }

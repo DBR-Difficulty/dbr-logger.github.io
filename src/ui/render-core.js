@@ -1,6 +1,7 @@
 const MODULE_VERSION = new URL(import.meta.url).search;
 
 const { LAMP_OPTIONS } = await import(`../constants.js${MODULE_VERSION}`);
+const { datasetValueMatches } = await import(`./dataset.js${MODULE_VERSION}`);
 const { renderBpChart, renderScoreChart } = await import(`./chart.js${MODULE_VERSION}`);
 const { todayIso } = await import(`../utils/date.js${MODULE_VERSION}`);
 const { renderProposalButton } = await import(`./proposal.js${MODULE_VERSION}`);
@@ -1636,9 +1637,11 @@ export function createRenderer(store) {
 
       nodes.catalogMeta.textContent = "";
       const selectedCardExists = snapshot.selectedSong
-        ? Boolean(nodes.catalog?.querySelector(snapshot.selectedCatalogKey
-          ? `[data-catalog-key="${encodeURIComponent(snapshot.selectedCatalogKey)}"]`
-          : `[data-title="${encodeURIComponent(snapshot.selectedSong.title)}"]`))
+        ? Array.from(nodes.catalog?.querySelectorAll(".song-card") ?? []).some((card) => (
+            snapshot.selectedCatalogKey
+              ? datasetValueMatches(card.dataset.catalogKey, snapshot.selectedCatalogKey)
+              : datasetValueMatches(card.dataset.title, snapshot.selectedSong.title)
+          ))
         : false;
 
       syncRecordFormWithSnapshot(nodes, snapshot, { setDirty: setEntryFormDirty });

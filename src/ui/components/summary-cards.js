@@ -2,7 +2,6 @@ const MODULE_VERSION = new URL(import.meta.url).search;
 
 const { LAMP_OPTIONS } = await import(`../../constants.js${MODULE_VERSION}`);
 const { formatIsoDate, todayIso } = await import(`../../utils/date.js${MODULE_VERSION}`);
-const { escapeHtml } = await import(`../../utils/html.js${MODULE_VERSION}`);
 
 const LAMP_COLORS = {
   "NO PLAY": "var(--lamp-no-play)",
@@ -336,31 +335,35 @@ function summarizeSummaryFilterCaption(filters, bounds) {
   return `${versionLabel} (${formatChartDifficultySelection(selectedChartDifficulties)})`;
 }
 
-function renderSummaryChartDifficultyFilter(filters) {
+function createSummaryChartDifficultyFilter(filters) {
   if (filters.axisMode !== "version") {
-    return "";
+    return null;
   }
 
   const selectedChartDifficulties = getActiveChartDifficultiesForSummary(filters);
   const visibleChartDifficulties = getSummaryChartDifficultyOptions(filters);
-  const chartDifficultyMarkup = visibleChartDifficulties.map((option) => {
-    const checked = selectedChartDifficulties.includes(option) ? "checked" : "";
-    return `
-      <label class="recommend-chip summary-chart-difficulty-chip">
-        <input type="checkbox" data-summary-chart-difficulty="${escapeHtml(option)}" value="${escapeHtml(option)}" ${checked} />
-        <span>${escapeHtml(option)}</span>
-      </label>
-    `;
-  }).join("");
-
-  return `
-    <div class="summary-chart-difficulty-filter">
-      <span class="recommend-label">譜面難易度</span>
-      <div class="recommend-options">
-        ${chartDifficultyMarkup}
-      </div>
-    </div>
-  `;
+  const filter = document.createElement("div");
+  filter.className = "summary-chart-difficulty-filter";
+  const label = document.createElement("span");
+  label.className = "recommend-label";
+  label.textContent = "譜面難易度";
+  const options = document.createElement("div");
+  options.className = "recommend-options";
+  visibleChartDifficulties.forEach((option) => {
+    const chip = document.createElement("label");
+    chip.className = "recommend-chip summary-chart-difficulty-chip";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.dataset.summaryChartDifficulty = option;
+    input.value = option;
+    input.checked = selectedChartDifficulties.includes(option);
+    const text = document.createElement("span");
+    text.textContent = option;
+    chip.append(input, text);
+    options.appendChild(chip);
+  });
+  filter.append(label, options);
+  return filter;
 }
 
 function formatPercent(value, total) {
@@ -370,56 +373,71 @@ function formatPercent(value, total) {
   return `${((value / total) * 100).toFixed(1)}%`;
 }
 
-function renderSummaryBands(summary) {
+function createSummaryBands(summary) {
   if (!summary.bands.length) {
-    return `<div class="summary-chart-empty empty-state">${escapeHtml(summary.emptyMessage ?? "難易度表が未読み込みです。")}</div>`;
+    const empty = document.createElement("div");
+    empty.className = "summary-chart-empty empty-state";
+    empty.textContent = summary.emptyMessage ?? "難易度表が未読み込みです。";
+    return empty;
   }
 
-  const rows = summary.bands.map((band) => {
+  const wrap = document.createElement("div");
+  wrap.className = "summary-chart-wrap";
+
+  const heading = document.createElement("div");
+  heading.className = "summary-chart-heading";
+  const totalLabel = document.createElement("span");
+  totalLabel.textContent = summary.totalLabel ?? "総曲数";
+  const total = document.createElement("strong");
+  total.textContent = `${summary.bandTotalSongs ?? summary.totalSongs} ${summary.totalUnit ?? "曲"}`;
+  heading.append(totalLabel, total);
+
+  const chart = document.createElement("div");
+  chart.className = "summary-band-chart";
+  if (summary.bands.length >= 1000) {
+    chart.classList.add("is-scrollable");
+  }
+
+  summary.bands.forEach((band) => {
     const categoryOptions = summary.displayMode === "score" ? SCORE_RANK_SUMMARY_OPTIONS : LAMP_OPTIONS;
     const segmentOrder = summary.displayMode === "score" ? categoryOptions : [...categoryOptions].reverse();
     const emptyKey = summary.displayMode === "score" ? "F" : "NO PLAY";
     const getColor = summary.displayMode === "score" ? getScoreRankColor : getSummaryBandLampColor;
-    const segments = (band.total === 0 ? [emptyKey] : segmentOrder).map((key) => {
+
+    const row = document.createElement("div");
+    row.className = "summary-band-row";
+    const label = document.createElement("div");
+    label.className = "summary-band-label";
+    label.textContent = band.label;
+    const track = document.createElement("div");
+    track.className = "summary-band-track";
+    track.setAttribute("role", "img");
+    track.setAttribute("aria-label", `${band.label} のクリアランプ内訳`);
+
+    (band.total === 0 ? [emptyKey] : segmentOrder).forEach((key) => {
       const count = band.lampCounts[key] ?? 0;
       if (count <= 0 && band.total !== 0) {
-        return "";
+        return;
       }
 
       const flexGrow = band.total === 0 ? 1 : count;
-      const segment = `
-        <span
-          class="summary-band-segment"
-          style="flex:${flexGrow} 1 0px;background:${getColor(key)}"
-          aria-hidden="true"
-        ></span>
-      `;
-      return segment;
-    }).join("");
+      const segment = document.createElement("span");
+      segment.className = "summary-band-segment";
+      segment.style.flex = `${flexGrow} 1 0px`;
+      segment.style.background = getColor(key);
+      segment.setAttribute("aria-hidden", "true");
+      track.appendChild(segment);
+    });
 
-    return `
-      <div class="summary-band-row">
-        <div class="summary-band-label">${escapeHtml(band.label)}</div>
-        <div class="summary-band-track" role="img" aria-label="${escapeHtml(band.label)} のクリアランプ内訳">
-          ${segments}
-        </div>
-        <div class="summary-band-total">${band.total}</div>
-      </div>
-    `;
-  }).join("");
-  const scrollableClass = summary.bands.length >= 1000 ? " is-scrollable" : "";
+    const bandTotal = document.createElement("div");
+    bandTotal.className = "summary-band-total";
+    bandTotal.textContent = String(band.total);
+    row.append(label, track, bandTotal);
+    chart.appendChild(row);
+  });
 
-  return `
-    <div class="summary-chart-wrap">
-      <div class="summary-chart-heading">
-        <span>${escapeHtml(summary.totalLabel ?? "総曲数")}</span>
-        <strong>${summary.bandTotalSongs ?? summary.totalSongs} ${escapeHtml(summary.totalUnit ?? "曲")}</strong>
-      </div>
-      <div class="summary-band-chart${scrollableClass}">
-        ${rows}
-      </div>
-    </div>
-  `;
+  wrap.append(heading, chart);
+  return wrap;
 }
 
 export function renderSummary(summaryContainer, summary, filters, bounds, activeFilters = filters) {
@@ -431,41 +449,63 @@ export function renderSummary(summaryContainer, summary, filters, bounds, active
     : filters.lamps;
   const getLegendColor = isScoreMode ? getScoreRankColor : getLampColor;
 
-  const legend = legendOptions.map((lamp) => {
+  summaryContainer.replaceChildren();
+
+  const panel = document.createElement("div");
+  panel.className = "summary-panel";
+  panel.appendChild(createSummaryBands(summary));
+
+  const chartDifficultyFilter = createSummaryChartDifficultyFilter(filters);
+  if (chartDifficultyFilter) {
+    panel.appendChild(chartDifficultyFilter);
+  }
+
+  const summaryFilterCaption = summarizeSummaryFilterCaption(filters, bounds);
+  const caption = document.createElement("div");
+  caption.className = "summary-filter-caption";
+  caption.textContent = summaryFilterCaption;
+  panel.appendChild(caption);
+
+  const legend = document.createElement("div");
+  legend.className = "summary-legend";
+  legendOptions.forEach((lamp) => {
     const isActive = isScoreMode && lamp === "F"
       ? selectedValues.includes("F") || selectedValues.includes("※")
       : selectedValues.includes(lamp);
     const label = isScoreMode ? getScoreRankSummaryLabel(lamp) : lamp;
 
-    return `
-      <button
-        class="summary-lamp-item ${isActive ? "is-active" : "is-inactive"}"
-        type="button"
-        data-summary-lamp="${escapeHtml(lamp)}"
-        aria-pressed="${isActive ? "true" : "false"}"
-        ${lampFilterDisabled ? "disabled aria-disabled=\"true\"" : ""}
-      >
-        <div class="summary-lamp-main">
-          <span class="summary-lamp-dot" style="background:${getLegendColor(lamp)}"></span>
-          <span class="summary-lamp-label">${escapeHtml(label)}</span>
-        </div>
-        <div class="summary-lamp-values">
-          <strong>${summary.lampCounts[lamp] ?? 0}</strong>
-          <span>${formatPercent(summary.lampCounts[lamp] ?? 0, summary.totalSongs)}</span>
-        </div>
-      </button>
-    `;
-  }).join("");
-  const summaryFilterCaption = summarizeSummaryFilterCaption(filters, bounds);
+    const button = document.createElement("button");
+    button.className = `summary-lamp-item ${isActive ? "is-active" : "is-inactive"}`;
+    button.type = "button";
+    button.dataset.summaryLamp = lamp;
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    if (lampFilterDisabled) {
+      button.disabled = true;
+      button.setAttribute("aria-disabled", "true");
+    }
 
-  summaryContainer.innerHTML = `
-    <div class="summary-panel">
-      ${renderSummaryBands(summary)}
-      ${renderSummaryChartDifficultyFilter(filters)}
-      <div class="summary-filter-caption">${escapeHtml(summaryFilterCaption)}</div>
-      <div class="summary-legend">
-        ${legend}
-      </div>
-    </div>
-  `;
+    const main = document.createElement("div");
+    main.className = "summary-lamp-main";
+    const dot = document.createElement("span");
+    dot.className = "summary-lamp-dot";
+    dot.style.background = getLegendColor(lamp);
+    const labelNode = document.createElement("span");
+    labelNode.className = "summary-lamp-label";
+    labelNode.textContent = label;
+    main.append(dot, labelNode);
+
+    const values = document.createElement("div");
+    values.className = "summary-lamp-values";
+    const count = summary.lampCounts[lamp] ?? 0;
+    const strong = document.createElement("strong");
+    strong.textContent = String(count);
+    const percent = document.createElement("span");
+    percent.textContent = formatPercent(count, summary.totalSongs);
+    values.append(strong, percent);
+
+    button.append(main, values);
+    legend.appendChild(button);
+  });
+  panel.appendChild(legend);
+  summaryContainer.appendChild(panel);
 }

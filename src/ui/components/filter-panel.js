@@ -404,12 +404,12 @@ function summarizeAxisFilter(filters, bounds) {
   return `${getAxisLabel(filters.axisMode)} ${formatAxisValue(filters.axisMode, filters.axisValue)}`;
 }
 
-function renderFloatingToggleLabel(filters, bounds) {
+function getFloatingToggleLabel(filters, bounds) {
   if (isDateAxisMode(filters.axisMode)) {
-    return `絞り込み: ${escapeHtml(formatDateRangeValue(filters))}`;
+    return `絞り込み: ${formatDateRangeValue(filters)}`;
   }
 
-  return `絞り込み: ${escapeHtml(summarizeAxisFilter(filters, bounds))}`;
+  return `絞り込み: ${summarizeAxisFilter(filters, bounds)}`;
 }
 
 function isDefaultDateRange(filters, dateDefaultRange) {
@@ -494,9 +494,16 @@ export function renderCatalogSortOptions(select, displayMode, sortMode) {
   const mode = displayMode === "all" || displayMode === "score" ? displayMode : "clear";
   const options = CATALOG_SORT_OPTIONS.filter((option) => option.modes.includes(mode));
 
-  select.innerHTML = options.map((option) => `
-    <option value="${escapeHtml(option.value)}" ${option.value === sortMode ? "selected" : ""}>${escapeHtml(option.label)}</option>
-  `).join("");
+  select.replaceChildren();
+  const fragment = document.createDocumentFragment();
+  options.forEach((option) => {
+    const optionNode = document.createElement("option");
+    optionNode.value = option.value;
+    optionNode.selected = option.value === sortMode;
+    optionNode.textContent = option.label;
+    fragment.appendChild(optionNode);
+  });
+  select.appendChild(fragment);
   select.value = options.some((option) => option.value === sortMode)
     ? sortMode
     : options[0]?.value ?? "splv";
@@ -532,14 +539,14 @@ export function renderFloatingAxisFilter(container, filters, bounds, isOpen, pre
     ? `
       <div class="floating-filter-date-block">
         <div class="floating-filter-date-summary">
-          <span>${escapeHtml(formatDateRangeValue(filters))}</span>
+          <span data-floating-display-value></span>
           ${dateRangeResetMarkup}
           ${dateModeToggleMarkup}
         </div>
         ${filters.dateSelectionMode === "single" ? `
           <div class="field floating-filter-date-field">
             <span class="input-field">
-              <input class="form-date" type="date" data-date-single value="${escapeHtml(filters.dateSingle || todayIso())}" />
+              <input class="form-date" type="date" data-date-single />
             </span>
           </div>
         ` : `
@@ -547,13 +554,13 @@ export function renderFloatingAxisFilter(container, filters, bounds, isOpen, pre
           <div class="field floating-filter-date-field">
             <span>開始日</span>
             <span class="input-field">
-              <input class="form-date" type="date" data-date-start value="${escapeHtml(filters.dateStart ?? "")}" />
+              <input class="form-date" type="date" data-date-start />
             </span>
           </div>
           <div class="field floating-filter-date-field">
             <span>終了日</span>
             <span class="input-field">
-              <input class="form-date" type="date" data-date-end value="${escapeHtml(filters.dateEnd ?? "")}" />
+              <input class="form-date" type="date" data-date-end />
             </span>
           </div>
           </div>
@@ -563,15 +570,15 @@ export function renderFloatingAxisFilter(container, filters, bounds, isOpen, pre
     : isTextAxisMode(filters.axisMode)
     ? `
       <div class="field floating-filter-search">
-        <span>${escapeHtml(searchLabel)}</span>
-        <input type="search" data-axis-query value="${escapeHtml(filters.titleQuery)}" placeholder="${escapeHtml(searchPlaceholder)}" />
+        <span data-floating-search-label></span>
+        <input type="search" data-axis-query />
       </div>
     `
     : rangeMode
     ? `
       <div class="floating-filter-slider-block">
         <div class="floating-filter-value">
-          <span>${escapeHtml(formatAxisRangeValue(filters.axisMode, effectiveRange))}</span>
+          <span data-floating-display-value></span>
           ${rangeToggleMarkup}
         </div>
         <div
@@ -606,7 +613,7 @@ export function renderFloatingAxisFilter(container, filters, bounds, isOpen, pre
     : `
       <div class="floating-filter-slider-block">
         <div class="floating-filter-value">
-          <span>${escapeHtml(currentAxisValue)}</span>
+          <span data-floating-display-value></span>
           ${rangeToggleMarkup}
         </div>
         <div
@@ -655,7 +662,6 @@ export function renderFloatingAxisFilter(container, filters, bounds, isOpen, pre
     <div class="${actionClasses}">
       ${previousDateButtonMarkup}
       <button class="floating-filter-toggle button button-primary" type="button" data-floating-toggle>
-        ${renderFloatingToggleLabel(filters, bounds)}
       </button>
       ${nextDateButtonMarkup}
       ${clearButtonMarkup}
@@ -678,6 +684,46 @@ export function renderFloatingAxisFilter(container, filters, bounds, isOpen, pre
       ${controlMarkup}
     </section>
   `;
+
+  const toggleButton = container.querySelector("[data-floating-toggle]");
+  if (toggleButton) {
+    toggleButton.textContent = getFloatingToggleLabel(filters, bounds);
+  }
+
+  const displayValue = container.querySelector("[data-floating-display-value]");
+  if (displayValue) {
+    displayValue.textContent = isDateAxisMode(filters.axisMode)
+      ? formatDateRangeValue(filters)
+      : rangeMode
+        ? formatAxisRangeValue(filters.axisMode, effectiveRange)
+        : currentAxisValue;
+  }
+
+  const singleInput = container.querySelector("[data-date-single]");
+  if (singleInput instanceof HTMLInputElement) {
+    singleInput.value = filters.dateSingle || todayIso();
+  }
+
+  const startInput = container.querySelector("[data-date-start]");
+  if (startInput instanceof HTMLInputElement) {
+    startInput.value = filters.dateStart ?? "";
+  }
+
+  const endInput = container.querySelector("[data-date-end]");
+  if (endInput instanceof HTMLInputElement) {
+    endInput.value = filters.dateEnd ?? "";
+  }
+
+  const searchLabelNode = container.querySelector("[data-floating-search-label]");
+  if (searchLabelNode) {
+    searchLabelNode.textContent = searchLabel;
+  }
+
+  const queryInput = container.querySelector("[data-axis-query]");
+  if (queryInput instanceof HTMLInputElement) {
+    queryInput.value = filters.titleQuery ?? "";
+    queryInput.placeholder = searchPlaceholder;
+  }
 
   container.querySelectorAll('input[type="range"]').forEach(updateSliderFill);
 }

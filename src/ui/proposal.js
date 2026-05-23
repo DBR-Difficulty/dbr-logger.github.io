@@ -60,19 +60,45 @@ export function renderProposalButton(container, selectedSong, difficultyTable) {
   area.className = "proposal-area";
 
   if (isProposed) {
-    area.innerHTML = `
-      <p class="proposal-warning">
-        ⚠️ 現在、新規提案中の譜面です。<br>
-        レベル・おすすめ度に違和感がある場合は、<a class="proposal-link" href="https://docs.google.com/spreadsheets/d/1R-bgS7CZ1BBTzsk4KRKRSmBAZWNotZnQLfWtZFQr-Ek/edit?gid=1709558806#gid=1709558806" target="_blank" rel="noopener">新規提案シート</a>の「異議申し立て」列に記載することができます（外部スプレッドシートを開きます）。
-      </p>`;
+    const warning = document.createElement("p");
+    warning.className = "proposal-warning";
+    warning.append("⚠️ 現在、新規提案中の譜面です。");
+    warning.appendChild(document.createElement("br"));
+    warning.append("レベル・おすすめ度に違和感がある場合は、");
+    const link = document.createElement("a");
+    link.className = "proposal-link";
+    link.href = "https://docs.google.com/spreadsheets/d/1R-bgS7CZ1BBTzsk4KRKRSmBAZWNotZnQLfWtZFQr-Ek/edit?gid=1709558806#gid=1709558806";
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "新規提案シート";
+    warning.appendChild(link);
+    warning.append("の「異議申し立て」列に記載することができます（外部スプレッドシートを開きます）。");
+    area.appendChild(warning);
   } else if (isUnrated) {
-    area.innerHTML = `<div class="proposal-open-actions"><button class="button button-secondary proposal-open-btn proposal-action-btn" type="button" data-type="new">新規提案</button></div>`;
+    const actions = document.createElement("div");
+    actions.className = "proposal-open-actions";
+    const button = document.createElement("button");
+    button.className = "button button-secondary proposal-open-btn proposal-action-btn";
+    button.type = "button";
+    button.dataset.type = "new";
+    button.textContent = "新規提案";
+    actions.appendChild(button);
+    area.appendChild(actions);
   } else {
-    area.innerHTML = `
-      <div class="action-group proposal-open-actions">
-        <button class="button button-secondary proposal-open-btn proposal-action-btn" type="button" data-type="change">変更提案</button>
-        <button class="button button-secondary proposal-open-btn proposal-action-btn" type="button" data-type="recommend">おすすめ提案</button>
-      </div>`;
+    const actions = document.createElement("div");
+    actions.className = "action-group proposal-open-actions";
+    [
+      ["change", "変更提案"],
+      ["recommend", "おすすめ提案"],
+    ].forEach(([type, label]) => {
+      const button = document.createElement("button");
+      button.className = "button button-secondary proposal-open-btn proposal-action-btn";
+      button.type = "button";
+      button.dataset.type = type;
+      button.textContent = label;
+      actions.appendChild(button);
+    });
+    area.appendChild(actions);
   }
 
   const formContainer = document.createElement("div");
@@ -85,7 +111,7 @@ export function renderProposalButton(container, selectedSong, difficultyTable) {
     btn.addEventListener("click", () => {
       const type = btn.dataset.type;
       if (formContainer.dataset.openType === type) {
-        formContainer.innerHTML = "";
+        formContainer.replaceChildren();
         formContainer.dataset.openType = "";
         return;
       }
@@ -96,7 +122,7 @@ export function renderProposalButton(container, selectedSong, difficultyTable) {
 }
 
 function renderProposalForm(container, type, entry) {
-  container.innerHTML = "";
+  container.replaceChildren();
 
   const today = todayFormatted();
   const typeLabel =
@@ -118,11 +144,26 @@ function renderProposalForm(container, type, entry) {
     <div class="proposal-status"></div>
   `;
 
+  const currentLevelNode = formEl.querySelector("[data-current-level-label]");
+  if (currentLevelNode) {
+    const currentLevel = entry.level ? entry.level.replace(/^[☆†]*[☆†]/, "") : "";
+    currentLevelNode.textContent = `☆${currentLevel}`;
+  }
+  const currentLevelInput = formEl.querySelector("[name=level_change]");
+  if (currentLevelInput instanceof HTMLInputElement) {
+    const currentLevel = entry.level ? entry.level.replace(/^[☆†]*[☆†]/, "") : "";
+    currentLevelInput.dataset.current = currentLevel;
+  }
+  const currentRecommendNode = formEl.querySelector("[data-current-recommend-label]");
+  if (currentRecommendNode) {
+    currentRecommendNode.textContent = entry.recommend || "無記入";
+  }
+
   container.appendChild(formEl);
 
 
   formEl.querySelector(".proposal-cancel-btn").addEventListener("click", () => {
-    container.innerHTML = "";
+    container.replaceChildren();
     container.dataset.openType = "";
   });
 
@@ -192,18 +233,15 @@ function buildFormFields(type, entry) {
   }
 
   if (type === "change") {
-    const currentLevelRaw = entry.level ? entry.level.replace(/^[☆†]*[☆†]/, "") : "";
-    const currentLevel = escapeHtml(currentLevelRaw);
     return `
       <div class="proposal-field proposal-current">
-        現在のレベル <strong>☆${currentLevel}</strong>
+        現在のレベル <strong data-current-level-label></strong>
       </div>
       <div class="proposal-field">
         <div class="proposal-stack-label field"><span>変更後レベル（必須）</span>
           <input class="proposal-input proposal-input-level" name="level_change" required aria-label="変更後レベル（必須）"
           pattern="^[0-9]{1,2}\\.[0-9]{2}$" maxlength="5"
-          title="小数点以下2桁（例: 11.00）"
-          data-current="${currentLevel}">
+          title="小数点以下2桁（例: 11.00）">
         </div>
       </div>
       <div class="proposal-field">
@@ -216,7 +254,7 @@ function buildFormFields(type, entry) {
 
   return `
     <div class="proposal-field proposal-current">
-      現在のおすすめ度 <strong>${escapeHtml(entry.recommend || "無記入")}</strong>
+      現在のおすすめ度 <strong data-current-recommend-label></strong>
     </div>
     <div class="proposal-field">
       <div class="proposal-stack-label field"><span>変更後おすすめ度（必須）</span>
@@ -259,6 +297,17 @@ function getProposalSheetLabel(type) {
   return "おすすめ提案シート";
 }
 
+function getSafeSheetUrl(sheetUrl) {
+  try {
+    const url = new URL(String(sheetUrl ?? ""));
+    return url.protocol === "https:" && url.hostname === "docs.google.com"
+      ? url.href
+      : "https://docs.google.com/";
+  } catch {
+    return "https://docs.google.com/";
+  }
+}
+
 function renderProposalSuccess(container, type, sheetUrl) {
   if (!container) {
     return;
@@ -266,16 +315,24 @@ function renderProposalSuccess(container, type, sheetUrl) {
 
   const typeLabel = getProposalTypeLabel(type);
 
-  container.innerHTML = `
-    <div class="proposal-success">
-      <p class="proposal-success-title">
-        ${escapeHtml(typeLabel)}を送信しました。
-      </p>
-      <p class="proposal-success-body">
-        送信内容を確認する場合は、<a href="${escapeHtml(sheetUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(typeLabel)}シート</a>を参照してください（外部スプレッドシートを開きます）。
-      </p>
-    </div>
-  `;
+  container.replaceChildren();
+  const success = document.createElement("div");
+  success.className = "proposal-success";
+  const title = document.createElement("p");
+  title.className = "proposal-success-title";
+  title.textContent = `${typeLabel}を送信しました。`;
+  const body = document.createElement("p");
+  body.className = "proposal-success-body";
+  body.append("送信内容を確認する場合は、");
+  const link = document.createElement("a");
+  link.href = getSafeSheetUrl(sheetUrl);
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = `${typeLabel}シート`;
+  body.appendChild(link);
+  body.append("を参照してください（外部スプレッドシートを開きます）。");
+  success.append(title, body);
+  container.appendChild(success);
 
   container.dataset.openType = "success";
 }
@@ -283,12 +340,23 @@ function renderProposalSuccess(container, type, sheetUrl) {
 function renderProposalError(statusEl, type, message, sheetUrl) {
   if (String(message ?? "").trim() === NEW_PROPOSAL_DUPLICATE_ERROR) {
     const sheetLabel = getProposalSheetLabel(type);
-    statusEl.innerHTML = `
-      <div class="proposal-status-error">
-        <p>この譜面はすでに提案されています。</p>
-        <p>提案内容を確認する場合は、<a class="proposal-link" href="${escapeHtml(sheetUrl)}" target="_blank" rel="noopener">${escapeHtml(sheetLabel)}</a>を参照してください（外部スプレッドシートを開きます）。</p>
-      </div>
-    `;
+    statusEl.replaceChildren();
+    const error = document.createElement("div");
+    error.className = "proposal-status-error";
+    const title = document.createElement("p");
+    title.textContent = "この譜面はすでに提案されています。";
+    const body = document.createElement("p");
+    body.append("提案内容を確認する場合は、");
+    const link = document.createElement("a");
+    link.className = "proposal-link";
+    link.href = getSafeSheetUrl(sheetUrl);
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = sheetLabel;
+    body.appendChild(link);
+    body.append("を参照してください（外部スプレッドシートを開きます）。");
+    error.append(title, body);
+    statusEl.appendChild(error);
     return;
   }
 
