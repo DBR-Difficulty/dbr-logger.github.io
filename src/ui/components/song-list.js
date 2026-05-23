@@ -285,15 +285,28 @@ export function renderSelectedSong(selectedSongContainer, selectedSong, songs, o
   selectedSongContainer.append(eyebrow, topMeta, title, note, bottomMeta);
 }
 
+function commitCatalogChildren(catalogContainer, payload) {
+  const previousHeight = catalogContainer.getBoundingClientRect().height;
+  if (previousHeight > 0) {
+    catalogContainer.style.minHeight = `${previousHeight}px`;
+  }
+  try {
+    catalogContainer.replaceChildren(payload);
+  } finally {
+    window.requestAnimationFrame(() => {
+      catalogContainer.style.minHeight = "";
+    });
+  }
+}
+
 export function renderCatalog(catalogContainer, songs, selectedTitle, options = {}) {
   catalogContainer.classList.toggle("is-list-view", options.viewMode === "list");
-  catalogContainer.replaceChildren();
 
   if (songs.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
     empty.textContent = "該当する曲がありません。";
-    catalogContainer.appendChild(empty);
+    commitCatalogChildren(catalogContainer, empty);
     return;
   }
 
@@ -387,5 +400,5 @@ export function renderCatalog(catalogContainer, songs, selectedTitle, options = 
     button.append(topMeta, title, note, bottomMeta);
     fragment.appendChild(button);
   });
-  catalogContainer.appendChild(fragment);
+  commitCatalogChildren(catalogContainer, fragment);
 }
