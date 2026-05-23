@@ -1271,7 +1271,7 @@ export function createRenderer(store) {
       dateSingle: nextDate,
       dateStart: filters.dateStart,
       dateEnd: filters.dateEnd,
-    }, { scrollToCatalog: false });
+    });
     return true;
   }
 
