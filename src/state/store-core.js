@@ -7,6 +7,7 @@ const {
   buildRecordIndex,
   createPersistedState,
   createRecordId,
+  getSongNoteKey,
   createTextageKeyFromCatalogEntry,
   exportRecordsAsCsv,
   exportRecordsAsDbrJson,
@@ -108,6 +109,32 @@ function nowTimestamp() {
   return Date.now();
 }
 
+function splitStoredSongNotes(stored) {
+  const v2Source = (typeof stored.songNotesV2 === "object" && stored.songNotesV2 !== null) ? stored.songNotesV2 : {};
+  const notesSource = (typeof stored.songNotes === "object" && stored.songNotes !== null) ? stored.songNotes : {};
+
+  const songNotes = {};
+  const legacySongNotesTitleKeyed = {};
+
+  Object.entries(v2Source).forEach(([key, value]) => {
+    if (typeof value !== "string" || !value) return;
+    songNotes[key] = value;
+  });
+
+  Object.entries(notesSource).forEach(([key, value]) => {
+    if (typeof value !== "string" || !value) return;
+    if (key.startsWith("textageKey:") || key.startsWith("title:")) {
+      if (!(key in songNotes)) {
+        songNotes[key] = value;
+      }
+    } else if (!(key in legacySongNotesTitleKeyed)) {
+      legacySongNotesTitleKeyed[key] = value;
+    }
+  });
+
+  return { songNotes, legacySongNotesTitleKeyed };
+}
+
 function normalizeStoredData(stored) {
   const normalizedFilters = normalizeStoredFilters(stored.filters);
   
@@ -141,7 +168,7 @@ function normalizeStoredData(stored) {
     records: normalizeRecords(stored.records),
     difficultyTable: stored.difficultyTable ?? null,
     difficultyTableUpdatedAt: normalizeDifficultyTableUpdatedAt(stored),
-    songNotes: typeof stored.songNotes === "object" && stored.songNotes !== null ? { ...stored.songNotes } : {},
+    ...splitStoredSongNotes(stored),
     filters: restoredFilters,
     titleFilterBase: null,
     dateFilterBase: normalizedDateFilterBase,
@@ -181,6 +208,7 @@ export function createStore() {
     difficultyTable: null,
     difficultyTableUpdatedAt: 0,
     songNotes: {},
+    legacySongNotesTitleKeyed: {},
     catalogVisibleSignature: "",
     catalogVisibleTitleOrder: [],
     catalogVisibleItemSnapshot: [],
@@ -259,6 +287,46 @@ export function createStore() {
 
   function persist() {
     saveAppData(createPersistedState(state));
+  }
+
+  function getSongNote(entry) {
+    const key = getSongNoteKey(entry);
+    return state.songNotes[key] ?? "";
+  }
+
+  function setSongNote(entry, note) {
+    const key = getSongNoteKey(entry);
+    const normalizedNote = String(note ?? "").trim();
+    if (normalizedNote) {
+      state.songNotes[key] = normalizedNote;
+    } else {
+      delete state.songNotes[key];
+    }
+  }
+
+  function migrateSongNotesToStableKeys() {
+    const legacy = state.legacySongNotesTitleKeyed;
+    if (!legacy || Object.keys(legacy).length === 0) {
+      return false;
+    }
+
+    const catalogEntries = getCatalogEntries();
+    let changed = false;
+
+    catalogEntries.forEach((entry) => {
+      const key = getSongNoteKey(entry);
+      const legacyNote = legacy[entry.title];
+      if (!legacyNote || state.songNotes[key]) {
+        return;
+      }
+
+      state.songNotes[key] = legacyNote;
+      changed = true;
+    });
+
+    state.legacySongNotesTitleKeyed = {};
+
+    return changed;
   }
 
   function clearDeleteAnchor() {
@@ -445,6 +513,7 @@ export function createStore() {
         state.difficultyTable = normalized.difficultyTable;
         state.difficultyTableUpdatedAt = normalized.difficultyTableUpdatedAt;
         state.songNotes = normalized.songNotes;
+        state.legacySongNotesTitleKeyed = normalized.legacySongNotesTitleKeyed;
         state.titleFilterBase = normalized.titleFilterBase;
         state.dateFilterBase = normalized.dateFilterBase;
         state.dateRangeMemory = normalized.dateRangeMemory;
@@ -482,6 +551,10 @@ export function createStore() {
           }
         }
 
+        if (migrateSongNotesToStableKeys()) {
+          didMutateStoredData = true;
+        }
+
         if (didMutateStoredData) {
           persist();
         }
@@ -495,6 +568,8 @@ export function createStore() {
         state.records = [];
         state.difficultyTable = null;
         state.difficultyTableUpdatedAt = 0;
+        state.songNotes = {};
+        state.legacySongNotesTitleKeyed = {};
         state.sourceLabel = "";
         state.statusMessage = "難易度表を読み込むと曲一覧を表示できます。";
         persist();
@@ -949,9 +1024,9 @@ export function createStore() {
     ];
 
     if (hasMemo) {
-      state.songNotes[selectedEntry.title] = normalizedMemo;
+      setSongNote(selectedEntry, normalizedMemo);
     } else {
-      delete state.songNotes[selectedEntry.title];
+      setSongNote(selectedEntry, "");
     }
 
     const date = getCurrentRecordDate();
@@ -1007,10 +1082,10 @@ export function createStore() {
 
     const normalizedMemo = String(note ?? "").trim();
     if (normalizedMemo) {
-      state.songNotes[selectedEntry.title] = normalizedMemo;
+      setSongNote(selectedEntry, normalizedMemo);
       state.statusMessage = `${selectedEntry.title} のメモを保存しました。`;
     } else {
-      delete state.songNotes[selectedEntry.title];
+      setSongNote(selectedEntry, "");
       state.statusMessage = `${selectedEntry.title} のメモを削除しました。`;
     }
 
@@ -1047,7 +1122,14 @@ export function createStore() {
   }
 
   function getExportCsv() {
-    return exportRecordsAsCsv(state.records, state.songNotes, state.difficultyTable);
+    const exportSongNotes = {};
+    getCatalogEntries().forEach((entry) => {
+      const note = getSongNote(entry);
+      if (note) {
+        exportSongNotes[entry.title] = note;
+      }
+    });
+    return exportRecordsAsCsv(state.records, exportSongNotes, state.difficultyTable);
   }
 
   function normalizeJsonImportLamp(value) {
@@ -1177,7 +1259,7 @@ export function createStore() {
   }
 
   function importCsvData(text) {
-    const { records, songNotes } = parseCsvRecords(text, state.difficultyTable);
+    const { records, songNotes: importedNotesByTitle } = parseCsvRecords(text, state.difficultyTable);
     const catalogEntryByTitle = new Map(getCatalogEntries().map((entry) => [entry.title, entry]));
     const importedRecords = records.map((record) => {
       const selectedEntry = catalogEntryByTitle.get(record.title);
@@ -1225,10 +1307,11 @@ export function createStore() {
       state.records = updateTextageKeyFromDifficultyTable(state.records, state.difficultyTable);
       state.records = state.records.sort(sortRecords);
     }    
-    state.songNotes = {
-      ...state.songNotes,
-      ...songNotes,
+    state.legacySongNotesTitleKeyed = {
+      ...state.legacySongNotesTitleKeyed,
+      ...importedNotesByTitle,
     };
+    migrateSongNotesToStableKeys();
     invalidateCatalogVisibleOrder();
     state.currentPage = 1;
     state.statusMessage = `CSVを読み込みました。${updatedRecordCount} 件を取り込み、合計 ${state.records.length} 件になりました。`;
@@ -1241,6 +1324,7 @@ export function createStore() {
   function clearAllRecords() {
     state.records = [];
     state.songNotes = {};
+    state.legacySongNotesTitleKeyed = {};
     invalidateCatalogVisibleOrder();
     state.currentPage = 1;
     state.statusMessage = "プレー記録をすべて削除しました。";
@@ -1274,13 +1358,13 @@ export function createStore() {
 
     const allSongStates = catalogEntries.map((entry) => ({
       ...deriveSongState(entry, recordIndex.get(entry.title) ?? []),
-      note: state.songNotes[entry.title] ?? "",
+      note: getSongNote(entry),
       displayMode: state.filters.displayMode,
     }));
 
     const songStates = allSongStates.map((entry) => ({
       ...applyDateScopedDisplayValues(entry, state.filters),
-      note: state.songNotes[entry.title] ?? "",
+      note: getSongNote(entry),
       displayMode: state.filters.displayMode,
     })).sort((a, b) => compareCatalogSongs(
       a,

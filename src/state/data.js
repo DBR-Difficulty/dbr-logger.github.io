@@ -289,6 +289,11 @@ export function createTextageKeyFromCatalogEntry(entry) {
   return /^\([A-Z]\)$/.test(suffix) ? `${entry.textageid}${suffix}` : "";
 }
 
+export function getSongNoteKey(entry) {
+  const textageKey = createTextageKeyFromCatalogEntry(entry);
+  return textageKey ? `textageKey:${textageKey}` : `title:${String(entry?.title ?? "")}`;
+}
+
 export function migrateRecordTitlesByTextageKey(records, difficultyTable) {
   const textageKeyToNewTitle = new Map();
   difficultyTable.entries.forEach((entry) => {
