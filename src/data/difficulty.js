@@ -4,6 +4,11 @@ const { DIFFICULTY_HEADER_URL, KATATE_CSV_PATH } = await import(`../constants.js
 const { parseCsv } = await import(`./csv.js${MODULE_VERSION}`);
 const { formatLocalDateTime } = await import(`../utils/date.js${MODULE_VERSION}`);
 
+const DIFFICULTY_DATA_URL_ALLOWED_HOSTS = new Set([
+  "dbr-difficulty.github.io",
+  "script.google.com",
+]);
+
 function normalizeString(value) {
   return String(value ?? "").trim();
 }
@@ -92,6 +97,19 @@ async function fetchJson(url) {
   return response.json();
 }
 
+function validateDifficultyDataUrl(rawUrl) {
+  try {
+    const url = new URL(String(rawUrl ?? ""));
+    if (url.protocol === "https:" && DIFFICULTY_DATA_URL_ALLOWED_HOSTS.has(url.hostname)) {
+      return url.href;
+    }
+  } catch {
+    // handled below
+  }
+
+  throw new Error("難易度表データURLの形式が不正です。");
+}
+
 export async function fetchDifficultyTableSource() {
   const header = await fetchJson(DIFFICULTY_HEADER_URL);
   if (!header?.data_url) {
@@ -99,7 +117,7 @@ export async function fetchDifficultyTableSource() {
   }
 
   return {
-    dataUrl: header.data_url,
+    dataUrl: validateDifficultyDataUrl(header.data_url),
     symbol: header.symbol ?? "",
   };
 }

@@ -61,6 +61,14 @@ function escapeCsvValue(value) {
   return stringValue;
 }
 
+function escapeCsvTextCell(value) {
+  const stringValue = String(value ?? "");
+  const safeValue = /^[\t\r\n=+\-@]/.test(stringValue) || /[\r\n][ \t]*[=+\-@]/.test(stringValue)
+    ? `'${stringValue}`
+    : stringValue;
+  return escapeCsvValue(safeValue);
+}
+
 function createSongId(title) {
   return title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/(^-|-$)/g, "");
 }
@@ -259,5 +267,11 @@ export function exportVerticalCsv(records, songNotes = {}, difficultyTable = nul
     ]);
   });
 
-  return [header, ...rows].map((row) => row.map(escapeCsvValue).join(",")).join("\n");
+  const numericColumns = new Set(["bp", "score"]);
+  return [header, ...rows].map((row, rowIndex) => row.map((value, columnIndex) => {
+    const column = header[columnIndex];
+    return rowIndex === 0 || numericColumns.has(column)
+      ? escapeCsvValue(value)
+      : escapeCsvTextCell(value);
+  }).join(",")).join("\n");
 }
