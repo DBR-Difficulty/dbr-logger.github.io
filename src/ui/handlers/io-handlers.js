@@ -275,7 +275,7 @@ export function bindIoHandlers({
 
     try {
       const result = await store.importDifficultyTable();
-      window.alert(`難易度表を読み込みました。\n曲数: ${result.titleCount}\n譜面数: ${result.entries.length}`);
+      window.alert(`難易度表を読み込みました。\n曲数: ${result.titleCount}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "難易度表の読み込みに失敗しました。";
       window.alert(message);
