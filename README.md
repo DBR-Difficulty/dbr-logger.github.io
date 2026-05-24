@@ -2,7 +2,7 @@
 
 ## このアプリについて
 
-DBR進捗管理（DBR Logger）は、[DBR難易度表](https://dbr-difficulty.github.io/index.html)との共同制作により制作された、beatmania IIDXの「DBR専用」プレー記録管理アプリです。
+DBR進捗管理（DBR Logger）は、[DBR難易度表](https://dbr-difficulty.github.io/index.html)との共同制作により開発された、beatmania IIDXの「DBR専用」プレー記録管理アプリです。
 
 DBR難易度表に掲載されている曲データを基準に、クリアランプ・BP・スコアをまとめて管理できます。
 
