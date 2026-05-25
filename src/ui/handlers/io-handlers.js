@@ -421,6 +421,10 @@ export function bindIoHandlers({
   });
 
   nodes.sendJsonToIrTestButton?.addEventListener("click", async () => {
+    if (!window.confirm("DBR IRの受け取りページに遷移します。よろしいですか？")) {
+      return;
+    }
+
     const targetWindow = openDbrIrImportPage();
     if (!targetWindow) {
       return;

@@ -365,7 +365,7 @@ function renderProposalError(statusEl, type, message, sheetUrl) {
 
 function buildProposalConfirmMessage(type, entry, fd) {
   const lines = [
-    "以下の内容を難易度表側に送信します。よろしいですか?",
+    "以下の内容を難易度表側に送信します。よろしいですか？",
     "",
     `種別: ${getProposalTypeLabel(type)}`,
     `楽曲: ${entry.title}`,
