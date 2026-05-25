@@ -421,7 +421,7 @@ export function bindIoHandlers({
   });
 
   nodes.sendJsonToIrTestButton?.addEventListener("click", async () => {
-    if (!window.confirm("DBR IRの受け取りページに遷移します。よろしいですか？")) {
+    if (!window.confirm("DBR IRの受け取りページにJSONデータを送信します。よろしいですか？")) {
       return;
     }
 
