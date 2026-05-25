@@ -363,6 +363,33 @@ function renderProposalError(statusEl, type, message, sheetUrl) {
   statusEl.textContent = `送信に失敗しました: ${message ?? "不明なエラー"}`;
 }
 
+function buildProposalConfirmMessage(type, entry, fd) {
+  const lines = [
+    "以下の内容を難易度表側に送信します。よろしいですか?",
+    "",
+    `種別: ${getProposalTypeLabel(type)}`,
+    `楽曲: ${entry.title}`,
+  ];
+
+  if (type === "new") {
+    lines.push(`レベル: ☆${fd.level_new}`);
+    lines.push(`おすすめ度: ${fd.recommend_new || "無記入"}`);
+    if (fd.comment_new) lines.push(`コメント: ${fd.comment_new}`);
+    if (fd.note_new) lines.push(`備考: ${fd.note_new}`);
+  } else if (type === "change") {
+    const currentLevel = entry.level ? entry.level.replace(/^[☆†]*[☆†]/, "") : "";
+    lines.push(`現在のレベル: ☆${currentLevel}`);
+    lines.push(`変更後レベル: ☆${fd.level_change}`);
+    lines.push(`理由: ${fd.reason_change}`);
+  } else {
+    lines.push(`現在のおすすめ度: ${entry.recommend || "無記入"}`);
+    lines.push(`変更後おすすめ度: ${fd.recommend_change || "無記入"}`);
+    lines.push(`理由: ${fd.reason_recommend}`);
+  }
+
+  return lines.join("\n");
+}
+
 async function handleProposalSubmit(formEl, type, entry, today) {
   const statusEl = formEl.querySelector(".proposal-status");
   const submitBtn = formEl.querySelector(".proposal-submit-btn");
@@ -387,10 +414,14 @@ async function handleProposalSubmit(formEl, type, entry, today) {
     return;
   }
 
+  const fd = Object.fromEntries(new FormData(formEl).entries());
+
+  if (!window.confirm(buildProposalConfirmMessage(type, entry, fd))) {
+    return;
+  }
+
   submitBtn.disabled = true;
   statusEl.textContent = "送信中…";
-
-  const fd = Object.fromEntries(new FormData(formEl).entries());
 
   let rowData;
   let sheetUrl;
