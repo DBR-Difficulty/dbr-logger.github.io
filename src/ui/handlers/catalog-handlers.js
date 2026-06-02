@@ -36,14 +36,59 @@ export function bindCatalogHandlers({
   setPendingCatalogBottomNextScroll,
   setPendingCatalogBottomLock,
 }) {
+  function handleTableSortClick(button) {
+    const nextSortMode = button.dataset.tableSortMode;
+    if (!nextSortMode) {
+      return;
+    }
+
+    const snapshot = store.getSnapshot();
+    if (snapshot.sortMode === nextSortMode) {
+      store.toggleSortDirection();
+      return;
+    }
+
+    store.setSortMode(nextSortMode);
+  }
+
+  function selectCatalogItemFromElement(element) {
+    const selection = resolveCatalogSelectionFromDataset(element, store);
+    store.selectSong(selection.title, selection.catalogItemKey);
+    window.requestAnimationFrame(scrollEntryPanelIntoView);
+  }
+
   nodes.catalog.addEventListener("click", (event) => {
+    const tableSortButton = event.target.closest("[data-table-sort-mode]");
+    if (tableSortButton) {
+      handleTableSortClick(tableSortButton);
+      return;
+    }
+
     const button = event.target.closest("[data-title]");
     if (!button) {
       return;
     }
-    const selection = resolveCatalogSelectionFromDataset(button, store);
-    store.selectSong(selection.title, selection.catalogItemKey);
-    window.requestAnimationFrame(scrollEntryPanelIntoView);
+    selectCatalogItemFromElement(button);
+  });
+
+  nodes.catalog.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    const target = event.target;
+    const tableSortButton = target instanceof Element ? target.closest("[data-table-sort-mode]") : null;
+    if (tableSortButton) {
+      return;
+    }
+
+    const item = target instanceof Element ? target.closest("[data-title]") : null;
+    if (!item) {
+      return;
+    }
+
+    event.preventDefault();
+    selectCatalogItemFromElement(item);
   });
 
   function handlePaginationClick(event, anchorToBottom = false) {

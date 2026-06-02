@@ -1586,11 +1586,12 @@ export function createRenderer(store) {
         viewMode: snapshot.catalogViewMode,
         selectedCatalogKey: snapshot.selectedCatalogKey,
         sortMode: snapshot.sortMode,
+        sortDirection: snapshot.sortDirection,
         axisMode: snapshot.filters.axisMode,
         summaryDisplayMode: effectiveSummaryDisplayMode,
       });
       renderPaginationComponent(nodes.catalogPaginationTop, snapshot.pagination, {
-        showSortDirectionToggle: true,
+        showSortDirectionToggle: snapshot.catalogViewMode !== "table",
         sortDirection: snapshot.sortDirection,
         sortMode: snapshot.sortMode,
         chartDifficultySortHead: snapshot.effectiveChartDifficultySortHead ?? snapshot.chartDifficultySortHead,
@@ -1647,14 +1648,31 @@ export function createRenderer(store) {
       }
       if (nodes.catalogSortSelect) {
         renderCatalogSortOptionsComponent(nodes.catalogSortSelect, snapshot.filters.displayMode, snapshot.sortMode);
+        nodes.catalogSortSelect.closest(".header-select")?.toggleAttribute("hidden", snapshot.catalogViewMode === "table");
       }
       if (nodes.catalogViewToggle) {
-        const isListView = snapshot.catalogViewMode === "list";
-        nodes.catalogViewToggle.innerHTML = isListView
-          ? '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect><rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect></svg>'
-          : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="3" rx="1.5"></rect><rect x="4" y="10.5" width="16" height="3" rx="1.5"></rect><rect x="4" y="16" width="16" height="3" rx="1.5"></rect></svg>';
-        nodes.catalogViewToggle.setAttribute("aria-pressed", isListView ? "true" : "false");
-        nodes.catalogViewToggle.title = isListView ? "箱型表示に切り替え" : "一覧表示に切り替え";
+        const viewToggleStates = {
+          card: {
+            icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="3" rx="1.5"></rect><rect x="4" y="10.5" width="16" height="3" rx="1.5"></rect><rect x="4" y="16" width="16" height="3" rx="1.5"></rect></svg>',
+            title: "一覧表示に切り替え",
+            label: "現在は箱型表示です。一覧表示に切り替え",
+          },
+          list: {
+            icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v3H5zM5 10.5h14v3H5zM5 16h14v3H5z"></path><path d="M8 4v16M13 4v16" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg>',
+            title: "テーブル表示に切り替え",
+            label: "現在は一覧表示です。テーブル表示に切り替え",
+          },
+          table: {
+            icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect><rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect></svg>',
+            title: "箱型表示に切り替え",
+            label: "現在はテーブル表示です。箱型表示に切り替え",
+          },
+        };
+        const viewToggleState = viewToggleStates[snapshot.catalogViewMode] ?? viewToggleStates.card;
+        nodes.catalogViewToggle.innerHTML = viewToggleState.icon;
+        nodes.catalogViewToggle.removeAttribute("aria-pressed");
+        nodes.catalogViewToggle.setAttribute("aria-label", viewToggleState.label);
+        nodes.catalogViewToggle.title = viewToggleState.title;
       }
     },
   };

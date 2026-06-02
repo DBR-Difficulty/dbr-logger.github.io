@@ -557,7 +557,7 @@ export function normalizeRandomSeed(seed) {
 }
 
 export function normalizeCatalogViewMode(catalogViewMode) {
-  return catalogViewMode === "list" ? "list" : "card";
+  return catalogViewMode === "list" || catalogViewMode === "table" ? catalogViewMode : "card";
 }
 
 export function filterHistoryByDateRange(history, filters) {
@@ -1047,7 +1047,7 @@ export function comparePrimarySortValue(
   }
 
   if (sortMode === "recommend") {
-    return compareRecommendPrimaryValue(a.recommend, b.recommend, "asc", recommendSortHead);
+    return compareRecommendPrimaryValue(a.recommend, b.recommend, sortDirection, recommendSortHead);
   }
 
   if (sortMode === "memo") {
@@ -1082,16 +1082,15 @@ export function compareChartDifficultyPrimaryValue(aTitle, bTitle, sortDirection
 }
 
 export function getRotatedRecommendOrder(sortDirection, head) {
-  const baseOrder = sortDirection === "desc"
-    ? [...RECOMMEND_SORT_OPTIONS].reverse()
-    : [...RECOMMEND_SORT_OPTIONS];
+  const baseOrder = RECOMMEND_SORT_OPTIONS;
   const normalizedHead = normalizeRecommendSortHead(head);
   const headIndex = baseOrder.indexOf(normalizedHead);
   if (headIndex < 0) {
-    return baseOrder;
+    return sortDirection === "desc" ? [...baseOrder].reverse() : baseOrder;
   }
 
-  return [...baseOrder.slice(headIndex), ...baseOrder.slice(0, headIndex)];
+  const rotatedOrder = [...baseOrder.slice(headIndex), ...baseOrder.slice(0, headIndex)];
+  return sortDirection === "desc" ? [...rotatedOrder].reverse() : rotatedOrder;
 }
 
 export function compareRecommendPrimaryValue(aRecommend, bRecommend, sortDirection, head) {

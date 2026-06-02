@@ -1,6 +1,7 @@
 const MODULE_VERSION = new URL(import.meta.url).search;
 
 const { formatIsoDate } = await import(`../../utils/date.js${MODULE_VERSION}`);
+const { VERSION_BAND_LABELS } = await import(`../../state/filters.js${MODULE_VERSION}`);
 const { encodeDatasetValue } = await import(`../dataset.js${MODULE_VERSION}`);
 
 const LAMP_COLORS = {
@@ -66,8 +67,16 @@ function formatDifficultyLabel(song) {
   return "未査定";
 }
 
+function formatTableDifficultyLabel(song) {
+  return song.level || "未査定";
+}
+
 function formatSplvLabel(song) {
   return song.splv ? `SP☆${song.splv}` : null;
+}
+
+function formatTableSplv(song) {
+  return song.splv || "-";
 }
 
 function formatKatateFilterValue(value) {
@@ -90,6 +99,24 @@ function formatKatateTitleSuffix(song) {
 
   const label = formatKatateFilterValue(song.katateValue);
   return label ? `片手☆${label}` : "";
+}
+
+function formatTableKatate(song) {
+  if (song.katateValue === null || song.katateValue === undefined || song.katateValue === "") {
+    return "-";
+  }
+
+  return formatKatateFilterValue(song.katateValue) || "-";
+}
+
+function formatTableVersion(song) {
+  const normalized = String(song?.version ?? "").trim();
+  return (VERSION_BAND_LABELS.get(normalized) ?? normalized) || "-";
+}
+
+function formatTableChartDifficulty(song) {
+  const match = String(song?.title ?? "").match(/\(([BNHAL])\)$/);
+  return match ? match[1] : "-";
 }
 
 function formatBpmTitleSuffix(song) {
@@ -145,6 +172,10 @@ function formatBp(value) {
 
 function formatScoreRankDisplay(value) {
   return value === null || value === undefined || value === "" ? "-" : String(value);
+}
+
+function formatDate(value) {
+  return value ? formatIsoDate(value).slice(5) : "-";
 }
 
 function getPrimaryResultBadge(song) {
@@ -299,14 +330,152 @@ function commitCatalogChildren(catalogContainer, payload) {
   }
 }
 
+function appendTableCell(row, text, className = "") {
+  const cell = document.createElement("td");
+  if (className) {
+    cell.className = className;
+  }
+  cell.textContent = text;
+  row.appendChild(cell);
+  return cell;
+}
+
+const TABLE_COLUMNS = [
+  { label: "DBR", fullLabel: "DBRLv.", sortMode: "level", className: "song-table-col-level" },
+  { label: "SP", fullLabel: "SPLv.", sortMode: "splv", className: "song-table-col-splv" },
+  { label: "katate", fullLabel: "片手Lv.", sortMode: "katate", className: "song-table-col-katate" },
+  { label: "ver", fullLabel: "バージョン", sortMode: "version", className: "song-table-col-version" },
+  { label: "diff", fullLabel: "譜面難易度", sortMode: "chartDifficulty", className: "song-table-col-chart-difficulty" },
+  { label: "title", fullLabel: "曲名", sortMode: "title", className: "song-table-col-title" },
+  { label: "BPM", fullLabel: "BPM", sortMode: "bpm", className: "song-table-col-bpm" },
+  { label: "rec", fullLabel: "おすすめ度", sortMode: "recommend", className: "song-table-col-recommend" },
+  { label: "lamp", fullLabel: "クリアランプ", sortMode: "clear", className: "song-table-col-lamp" },
+  { label: "minBP", fullLabel: "最小BP", sortMode: "bestBp", className: "song-table-col-bp" },
+  { label: "newBP", fullLabel: "最新BP", sortMode: "latestBp", className: "song-table-col-bp" },
+  { label: "best", fullLabel: "最高スコア", sortMode: "bestScore", className: "song-table-col-score" },
+  { label: "new", fullLabel: "最新スコア", sortMode: "latestScore", className: "song-table-col-score" },
+  { label: "last", fullLabel: "最終プレー", sortMode: "latest", className: "song-table-col-date" },
+  { label: "plays", fullLabel: "履歴件数", sortMode: "entryCount", className: "song-table-col-count" },
+];
+
+function renderCatalogTable(songs, selectedTitle, options = {}) {
+  const wrap = document.createElement("div");
+  wrap.className = "song-table-wrap";
+
+  const table = document.createElement("table");
+  table.className = "song-table";
+
+  const headerRow = document.createElement("tr");
+  TABLE_COLUMNS.forEach((column) => {
+    const isActiveSort = options.sortMode === column.sortMode;
+    const header = document.createElement("th");
+    header.className = column.className;
+    header.scope = "col";
+    if (isActiveSort) {
+      header.classList.add("is-active-sort");
+      header.setAttribute("aria-sort", options.sortDirection === "desc" ? "descending" : "ascending");
+    }
+
+    const button = document.createElement("button");
+    button.className = "song-table-sort-button";
+    if (isActiveSort) {
+      button.classList.add("is-active");
+    }
+    button.type = "button";
+    button.dataset.tableSortMode = column.sortMode;
+    button.textContent = column.label;
+    button.title = `${column.fullLabel}で並び替え`;
+    button.setAttribute("aria-label", `${column.fullLabel}で並び替え`);
+    if (isActiveSort) {
+      const indicator = document.createElement("span");
+      indicator.className = "song-table-sort-indicator";
+      indicator.textContent = options.sortDirection === "desc" ? "▼" : "▲";
+      button.appendChild(indicator);
+    }
+
+    header.appendChild(button);
+    headerRow.appendChild(header);
+  });
+
+  const thead = document.createElement("thead");
+  thead.appendChild(headerRow);
+
+  const tbody = document.createElement("tbody");
+
+  songs.forEach((song) => {
+    const catalogItemKey = song.catalogItemKey || `title:${song.title}`;
+    const selectedClass = options.selectedCatalogKey
+      ? catalogItemKey === options.selectedCatalogKey
+      : song.title === selectedTitle;
+    const encodedTitle = encodeDatasetValue(song.title);
+    const encodedCatalogItemKey = encodeDatasetValue(catalogItemKey);
+    const lampColor = getCardBandColor(song, options.summaryDisplayMode);
+
+    const row = document.createElement("tr");
+    row.className = "song-card song-table-row";
+    if (selectedClass) {
+      row.classList.add("is-selected");
+    }
+    if (song.isProposed) {
+      row.classList.add("is-proposed");
+    }
+    if (song.isDeletedRecordScopedCard) {
+      row.classList.add("is-deleted-record");
+    }
+    row.tabIndex = 0;
+    row.dataset.title = encodedTitle;
+    row.dataset.catalogKey = encodedCatalogItemKey;
+    row.style.setProperty("--card-lamp-color", lampColor);
+
+    appendTableCell(row, formatTableDifficultyLabel(song), "song-table-number song-table-band-cell song-table-col-level");
+    appendTableCell(row, formatTableSplv(song), "song-table-number song-table-col-splv");
+    appendTableCell(row, formatTableKatate(song), "song-table-number song-table-col-katate");
+    appendTableCell(row, formatTableVersion(song), "song-table-version song-table-col-version");
+    appendTableCell(row, formatTableChartDifficulty(song), "song-table-number song-table-col-chart-difficulty");
+
+    const titleCell = appendTableCell(row, "", "song-table-title-cell song-table-col-title");
+    const titleText = document.createElement("span");
+    titleText.className = "song-table-title";
+    titleText.textContent = song.title;
+    titleCell.appendChild(titleText);
+
+    appendTableCell(row, String(song?.bpm ?? "").trim() || "-", "song-table-number song-table-col-bpm");
+    appendTableCell(row, formatRecommendDisplay(song.recommend), "song-table-recommend song-table-col-recommend");
+    appendTableCell(row, song.bestLamp || "NO PLAY", "song-table-lamp song-table-col-lamp");
+    appendTableCell(row, formatBp(song.bestBp), "song-table-number song-table-col-bp");
+    appendTableCell(row, formatBp(song.currentBp), "song-table-number song-table-col-bp");
+    appendTableCell(row, formatScoreRankDisplay(song.bestScoreLabel), "song-table-number song-table-col-score");
+    appendTableCell(row, formatScoreRankDisplay(song.currentScoreLabel), "song-table-number song-table-col-score");
+    appendTableCell(row, formatDate(song.latestDate), "song-table-number song-table-col-date");
+    appendTableCell(row, String(song.entryCount ?? 0), "song-table-number song-table-col-count");
+
+    tbody.appendChild(row);
+  });
+
+  table.append(thead, tbody);
+  wrap.appendChild(table);
+  return wrap;
+}
+
 export function renderCatalog(catalogContainer, songs, selectedTitle, options = {}) {
+  const previousTableScrollLeft = catalogContainer.querySelector(".song-table-wrap")?.scrollLeft ?? 0;
   catalogContainer.classList.toggle("is-list-view", options.viewMode === "list");
+  catalogContainer.classList.toggle("is-table-view", options.viewMode === "table");
 
   if (songs.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
     empty.textContent = "該当する曲がありません。";
     commitCatalogChildren(catalogContainer, empty);
+    return;
+  }
+
+  if (options.viewMode === "table") {
+    const tableWrap = renderCatalogTable(songs, selectedTitle, options);
+    commitCatalogChildren(catalogContainer, tableWrap);
+    window.requestAnimationFrame(() => {
+      tableWrap.scrollLeft = previousTableScrollLeft;
+    });
     return;
   }
 

@@ -352,6 +352,10 @@ td {
   display: none;
 }
 
+.catalog-header .header-select[hidden] {
+  display: none;
+}
+
 .header-select span {
   color: var(--muted);
   font-size: 0.82rem;
@@ -1122,6 +1126,13 @@ html[data-theme="dark"] .summary-filters-toggle {
   gap: 8px;
 }
 
+.song-grid.is-table-view {
+  display: block;
+  margin-left: -24px;
+  margin-right: -24px;
+  overflow: visible;
+}
+
 .song-grid > .empty-state {
   grid-column: 1 / -1;
   width: 100%;
@@ -1244,16 +1255,210 @@ html[data-theme="dark"] .summary-filters-toggle {
   white-space: nowrap;
 }
 
+.song-table-wrap {
+  background: var(--panel-strong);
+  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+.song-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--text);
+  font-size: 0.72rem;
+  line-height: 1.25;
+  min-width: 100%;
+  table-layout: auto;
+  width: max-content;
+}
+
+.song-table th,
+.song-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 5px;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.song-table th {
+  background: rgba(36, 50, 56, 0.04);
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 0.66rem;
+  font-weight: 800;
+  padding: 0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.song-table-sort-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-weight: 800;
+  gap: 4px;
+  justify-content: flex-start;
+  line-height: 1.1;
+  min-height: 28px;
+  min-width: 0;
+  overflow: visible;
+  padding: 4px 6px;
+  text-align: inherit;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.song-table th.is-active-sort {
+  background: rgba(13, 138, 148, 0.08);
+  color: var(--text);
+}
+
+.song-table-sort-button:hover,
+.song-table-sort-button:active {
+  background: transparent;
+}
+
+.song-table-sort-button.is-active {
+  background: transparent;
+  color: var(--text);
+}
+
+.song-table-sort-button:focus-visible {
+  outline: 2px solid rgba(13, 138, 148, 0.24);
+  outline-offset: -2px;
+}
+
+.song-table-sort-indicator {
+  flex: 0 0 auto;
+  font-size: 0.72em;
+  line-height: 1;
+  min-width: 0.75em;
+  text-align: center;
+}
+
+.song-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.song-table-row.song-card {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+  display: table-row;
+  overflow: visible;
+  padding: 0;
+  transform: none;
+}
+
+.song-table-row.song-card::before {
+  display: none;
+}
+
+.song-table-row.song-card > * {
+  position: static;
+}
+
+.song-table-row.is-selected td {
+  background: rgba(13, 138, 148, 0.08);
+}
+
+.song-table-row.is-proposed td {
+  background: rgba(255, 230, 100, 0.12);
+}
+
+.song-table-row.is-selected.is-proposed td {
+  background: linear-gradient(0deg, rgba(13, 138, 148, 0.08), rgba(13, 138, 148, 0.08)), rgba(255, 230, 100, 0.12);
+}
+
+.song-table-row.is-deleted-record {
+  opacity: 0.52;
+}
+
+.song-table td.song-table-band-cell {
+  border-left: 0;
+  box-shadow: inset 4px 0 0 var(--card-lamp-color, transparent);
+  padding-left: 8px;
+}
+
+.song-table-number,
+.song-table-recommend,
+.song-table-version,
+.song-table-lamp {
+  font-family: var(--font-ui);
+}
+
+.song-table-number,
+.song-table-recommend {
+  text-align: right;
+}
+
+.song-table td.song-table-title-cell {
+  color: var(--text);
+  font-family: var(--font-song);
+  font-weight: 800;
+  max-width: 150px;
+  min-width: 150px;
+  white-space: normal;
+  width: 150px;
+}
+
+.song-table-title {
+  display: block;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.song-table-title-cell .pill {
+  margin-left: 8px;
+  padding: 3px 7px;
+  vertical-align: middle;
+}
+
+.song-table-col-title {
+  width: 150px;
+}
+
 @media (hover: hover) {
   .song-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 2px 32px rgba(43, 54, 61, 0.12);
+  }
+
+  .song-table-row.song-card:hover {
+    box-shadow: none;
+    transform: none;
+  }
+
+  .song-table-row.song-card:hover td {
+    background: rgba(13, 138, 148, 0.06);
   }
 }
 
 .song-card.is-selected {
   border-color: rgba(13, 138, 148, 0.32);
   box-shadow: 0 0 32px rgba(13, 138, 148, 0.18);
+}
+
+.song-table-row.song-card.is-selected {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .song-card.is-deleted-record {
@@ -2269,8 +2474,28 @@ html[data-theme="dark"] .recommend-chip input:checked + span {
 html[data-theme="dark"] .summary-lamp-item,
 html[data-theme="dark"] .song-card,
 html[data-theme="dark"] .selected-song-card,
+html[data-theme="dark"] .song-table-wrap,
 html[data-theme="dark"] .proposal-form {
   background: rgba(20, 26, 31, 0.92);
+}
+
+html[data-theme="dark"] .song-table th {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html[data-theme="dark"] .song-table th.is-active-sort {
+  background: rgba(83, 199, 207, 0.1);
+  color: var(--text);
+}
+
+html[data-theme="dark"] .song-table-sort-button:hover,
+html[data-theme="dark"] .song-table-sort-button:active {
+  background: transparent;
+}
+
+html[data-theme="dark"] .song-table-sort-button.is-active {
+  background: transparent;
+  color: var(--text);
 }
 
 html[data-theme="dark"] .proposal-success {
@@ -2308,9 +2533,29 @@ html[data-theme="dark"] .song-card.is-selected {
   box-shadow: 0 0 30px rgba(83, 199, 207, 0.12);
 }
 
+html[data-theme="dark"] .song-table-row.is-selected td {
+  background: rgba(83, 199, 207, 0.1);
+}
+
+html[data-theme="dark"] .song-table-row.is-proposed td {
+  background: rgba(255, 217, 102, 0.05);
+}
+
+html[data-theme="dark"] .song-table-row.is-selected.is-proposed td {
+  background: linear-gradient(0deg, rgba(83, 199, 207, 0.1), rgba(83, 199, 207, 0.1)), rgba(255, 217, 102, 0.05);
+}
+
 @media (hover: hover) {
   html[data-theme="dark"] .song-card:hover {
     box-shadow: 0 2px 32px rgba(83, 199, 207, 0.18);
+  }
+
+  html[data-theme="dark"] .song-table-row.song-card:hover {
+    box-shadow: none;
+  }
+
+  html[data-theme="dark"] .song-table-row.song-card:hover td {
+    background: rgba(83, 199, 207, 0.08);
   }
 }
 
@@ -3053,6 +3298,35 @@ html[data-theme="dark"] .proposal-success-body a {
 
   .song-grid.is-list-view .song-card-note {
     gap: 0.65em;
+  }
+
+  .song-grid.is-table-view {
+    margin-left: -16px;
+    margin-right: -16px;
+  }
+
+  .song-table-wrap {
+    min-width: 0;
+  }
+
+  .song-table {
+    font-size: 0.68rem;
+    min-width: 100%;
+  }
+
+  .song-table th,
+  .song-table td {
+    padding: 4px;
+  }
+
+  .song-table th {
+    font-size: 0.62rem;
+  }
+
+  .song-table td.song-table-title-cell {
+    max-width: 140px;
+    min-width: 140px;
+    width: 140px;
   }
 
   .pagination-bar-top {

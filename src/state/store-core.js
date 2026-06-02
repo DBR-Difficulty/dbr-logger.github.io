@@ -1,5 +1,8 @@
 const MODULE_VERSION = new URL(import.meta.url).search;
 
+const CATALOG_VIEW_MODES = ["card", "list", "table"];
+const TABLE_PAGE_SIZE = 500;
+
 const { LAMP_OPTIONS } = await import(`../constants.js${MODULE_VERSION}`);
 const {
   areCsvRecordValuesEqual,
@@ -961,8 +964,12 @@ export function createStore() {
   }
 
   function toggleCatalogViewMode() {
-    state.catalogViewMode = state.catalogViewMode === "list" ? "card" : "list";
+    const currentIndex = CATALOG_VIEW_MODES.indexOf(state.catalogViewMode);
+    const nextIndex = ((currentIndex >= 0 ? currentIndex : 0) + 1) % CATALOG_VIEW_MODES.length;
+    state.catalogViewMode = CATALOG_VIEW_MODES[nextIndex];
+    invalidateCatalogSnapshot();
     persist();
+    ensureSelectedSong();
     emit();
   }
 
@@ -1419,10 +1426,18 @@ export function createStore() {
 
     const chartDifficultyRotationState = getChartDifficultyRotationState(filteredVisibleSongs, state.chartDifficultySortHead);
     const effectiveChartDifficultySortHead = state.sortMode === "chartDifficulty"
-      ? chartDifficultyRotationState.head
+      ? state.catalogViewMode === "table"
+        ? (
+            state.sortDirection === "desc"
+              ? (chartDifficultyRotationState.choices.at(-1) ?? CHART_DIFFICULTY_OPTIONS.at(-1))
+              : (chartDifficultyRotationState.choices[0] ?? CHART_DIFFICULTY_OPTIONS[0])
+          )
+        : chartDifficultyRotationState.head
       : state.chartDifficultySortHead;
     const effectiveChartDifficultySortDirection = state.sortMode === "chartDifficulty"
-      ? chartDifficultyRotationState.direction
+      ? state.catalogViewMode === "table"
+        ? state.sortDirection
+        : chartDifficultyRotationState.direction
       : null;
     const recommendSortChoices = getRecommendSortChoicesFromSongs(filteredVisibleSongs);
     const effectiveRecommendSortHead = state.sortMode === "recommend" && recommendSortChoices.length > 0
@@ -1507,13 +1522,14 @@ export function createStore() {
         scoreRanks: [...SCORE_RANK_OPTIONS],
       },
     });
-    const totalPages = Math.max(1, Math.ceil(visibleSongs.length / PAGE_SIZE));
+    const pageSize = state.catalogViewMode === "table" ? TABLE_PAGE_SIZE : PAGE_SIZE;
+    const totalPages = Math.max(1, Math.ceil(visibleSongs.length / pageSize));
     const currentPage = Math.max(1, Math.min(state.currentPage, totalPages));
-    const pageStart = (currentPage - 1) * PAGE_SIZE;
-    const pagedSongs = visibleSongs.slice(pageStart, pageStart + PAGE_SIZE);
+    const pageStart = (currentPage - 1) * pageSize;
+    const pagedSongs = visibleSongs.slice(pageStart, pageStart + pageSize);
     const pageRanges = Array.from({ length: totalPages }, (_, index) => {
-      const rangeStart = index * PAGE_SIZE;
-      const pageSongs = visibleSongs.slice(rangeStart, rangeStart + PAGE_SIZE);
+      const rangeStart = index * pageSize;
+      const pageSongs = visibleSongs.slice(rangeStart, rangeStart + pageSize);
       return {
         page: index + 1,
         first: pageSongs[0] ?? null,
@@ -1530,10 +1546,10 @@ export function createStore() {
       pagination: {
         currentPage,
         totalPages,
-        pageSize: PAGE_SIZE,
+        pageSize,
         totalItems: visibleSongs.length,
         startIndex: visibleSongs.length === 0 ? 0 : pageStart + 1,
-        endIndex: Math.min(pageStart + PAGE_SIZE, visibleSongs.length),
+        endIndex: Math.min(pageStart + pageSize, visibleSongs.length),
         pageRanges,
       },
       summary,
