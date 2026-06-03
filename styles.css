@@ -2810,7 +2810,7 @@ html[data-theme="dark"] .proposal-success-body a {
     grid-template-columns: 1fr;
   }
 
-  .selected-workspace {
+  .selected-workspace.stack {
     background: var(--bg);
     border-top: 1px solid var(--border);
     bottom: 0;
@@ -2828,7 +2828,7 @@ html[data-theme="dark"] .proposal-success-body a {
     z-index: 70;
   }
 
-  .selected-workspace > .panel + .panel {
+  .selected-workspace > * + .panel {
     margin-top: 16px;
   }
 
