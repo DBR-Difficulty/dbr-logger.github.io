@@ -520,6 +520,13 @@ function renderCatalogTable(songs, selectedTitle, options = {}) {
     titleText.className = "song-table-title";
     titleText.textContent = song.title;
     titleCell.appendChild(titleText);
+    const memoText = String(song?.note ?? "").replace(/\s+/g, " ").trim();
+    if (memoText) {
+      const memo = document.createElement("span");
+      memo.className = "song-table-title-memo";
+      memo.textContent = memoText;
+      titleCell.appendChild(memo);
+    }
 
     appendTableCell(row, String(song?.bpm ?? "").trim() || "-", "song-table-number song-table-col-bpm");
     appendTableCell(row, formatRecommendDisplay(song.recommend), "song-table-recommend song-table-col-recommend");
