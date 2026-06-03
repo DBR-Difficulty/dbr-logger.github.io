@@ -6,6 +6,21 @@ function getCatalogItemKey(song) {
   return song?.catalogItemKey || `title:${song?.title ?? ""}`;
 }
 
+const TABLE_SORT_ROTATIONS = {
+  bestBp: [
+    ["bestBp", "asc"],
+    ["bestBp", "desc"],
+    ["latestBp", "asc"],
+    ["latestBp", "desc"],
+  ],
+  bestScore: [
+    ["bestScore", "asc"],
+    ["bestScore", "desc"],
+    ["latestScore", "asc"],
+    ["latestScore", "desc"],
+  ],
+};
+
 function resolveCatalogSelectionFromDataset(button, store) {
   const rawTitle = button.dataset.title ?? "";
   const rawCatalogKey = button.dataset.catalogKey ?? "";
@@ -43,6 +58,16 @@ export function bindCatalogHandlers({
     }
 
     const snapshot = store.getSnapshot();
+    const rotation = TABLE_SORT_ROTATIONS[nextSortMode];
+    if (rotation) {
+      const currentIndex = rotation.findIndex(([sortMode, sortDirection]) => (
+        snapshot.sortMode === sortMode && snapshot.sortDirection === sortDirection
+      ));
+      const [rotatedSortMode, rotatedSortDirection] = rotation[(currentIndex + 1) % rotation.length];
+      store.setTableSortState(rotatedSortMode, rotatedSortDirection);
+      return;
+    }
+
     if (snapshot.sortMode === nextSortMode) {
       store.toggleSortDirection();
       return;
@@ -92,6 +117,17 @@ export function bindCatalogHandlers({
   });
 
   function handlePaginationClick(event, anchorToBottom = false) {
+    const randomSortButton = event.target.closest("[data-random-sort-toggle]");
+    if (randomSortButton) {
+      const snapshot = store.getSnapshot();
+      if (snapshot.sortMode === "random") {
+        store.toggleSortDirection();
+      } else {
+        store.setSortMode("random");
+      }
+      return;
+    }
+
     const chartDifficultyHeadButton = event.target.closest("[data-chart-difficulty-head-toggle]");
     if (chartDifficultyHeadButton) {
       store.rotateChartDifficultySortHead();

@@ -895,6 +895,37 @@ export function createStore() {
     emit();
   }
 
+  function setTableSortState(nextSortMode, nextSortDirection) {
+    const normalizedSortMode = normalizeSortMode(nextSortMode);
+    const normalizedSortDirection = normalizeSortDirection(nextSortDirection);
+    if (normalizedSortMode === state.sortMode && normalizedSortDirection === state.sortDirection) {
+      return;
+    }
+
+    state.sortMode = normalizedSortMode;
+    state.sortDirection = normalizedSortDirection;
+    if (normalizedSortMode === "random") {
+      state.randomSeed = nowTimestamp();
+    }
+    state.sortModeMemory = {
+      ...state.sortModeMemory,
+      [state.filters.axisMode]: normalizedSortMode,
+    };
+    state.chartDifficultySortHeadMemory = {
+      ...state.chartDifficultySortHeadMemory,
+      [state.filters.axisMode]: state.chartDifficultySortHead,
+    };
+    state.recommendSortHeadMemory = {
+      ...state.recommendSortHeadMemory,
+      [state.filters.axisMode]: state.recommendSortHead,
+    };
+    invalidateCatalogVisibleOrder();
+    state.currentPage = 1;
+    persist();
+    ensureSelectedSong();
+    emit();
+  }
+
   function toggleSortDirection() {
     if (state.sortMode === "random") {
       state.randomSeed = nowTimestamp();
@@ -1598,6 +1629,7 @@ export function createStore() {
     clearTitleFilter,
     clearDateFilter,
     setSortMode,
+    setTableSortState,
     toggleSortDirection,
     rotateChartDifficultySortHead,
     rotateRecommendSortHead,

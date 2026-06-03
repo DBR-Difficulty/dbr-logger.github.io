@@ -174,6 +174,16 @@ function formatScoreRankDisplay(value) {
   return value === null || value === undefined || value === "" ? "-" : String(value);
 }
 
+function formatTableBpPair(song) {
+  return `${formatBp(song.bestBp)}/${formatBp(song.currentBp)}`;
+}
+
+function formatTableScorePair(song) {
+  const bestScoreLabel = formatScoreRankDisplay(song.bestScoreLabel);
+  const currentScoreLabel = formatScoreRankDisplay(song.currentScoreLabel);
+  return bestScoreLabel === "※" ? "※" : `${bestScoreLabel}/${currentScoreLabel}`;
+}
+
 function formatDate(value) {
   return value ? formatIsoDate(value).slice(5) : "-";
 }
@@ -340,23 +350,77 @@ function appendTableCell(row, text, className = "") {
   return cell;
 }
 
+function appendLampBandCell(row) {
+  const cell = document.createElement("td");
+  cell.className = "song-table-lamp-band-cell";
+  cell.setAttribute("aria-hidden", "true");
+  row.appendChild(cell);
+  return cell;
+}
+
 const TABLE_COLUMNS = [
   { label: "DBR", fullLabel: "DBRLv.", sortMode: "level", className: "song-table-col-level" },
   { label: "SP", fullLabel: "SPLv.", sortMode: "splv", className: "song-table-col-splv" },
-  { label: "katate", fullLabel: "片手Lv.", sortMode: "katate", className: "song-table-col-katate" },
+  { label: "片手", fullLabel: "片手Lv.", sortMode: "katate", className: "song-table-col-katate" },
   { label: "ver", fullLabel: "バージョン", sortMode: "version", className: "song-table-col-version" },
   { label: "diff", fullLabel: "譜面難易度", sortMode: "chartDifficulty", className: "song-table-col-chart-difficulty" },
   { label: "title", fullLabel: "曲名", sortMode: "title", className: "song-table-col-title" },
   { label: "BPM", fullLabel: "BPM", sortMode: "bpm", className: "song-table-col-bpm" },
   { label: "rec", fullLabel: "おすすめ度", sortMode: "recommend", className: "song-table-col-recommend" },
   { label: "lamp", fullLabel: "クリアランプ", sortMode: "clear", className: "song-table-col-lamp" },
-  { label: "minBP", fullLabel: "最小BP", sortMode: "bestBp", className: "song-table-col-bp" },
-  { label: "newBP", fullLabel: "最新BP", sortMode: "latestBp", className: "song-table-col-bp" },
-  { label: "best", fullLabel: "最高スコア", sortMode: "bestScore", className: "song-table-col-score" },
-  { label: "new", fullLabel: "最新スコア", sortMode: "latestScore", className: "song-table-col-score" },
+  {
+    label: "BP",
+    fullLabel: "BP",
+    sortMode: "bestBp",
+    sortModes: ["bestBp", "latestBp"],
+    className: "song-table-col-bp",
+  },
+  {
+    label: "score",
+    fullLabel: "スコア",
+    sortMode: "bestScore",
+    sortModes: ["bestScore", "latestScore"],
+    className: "song-table-col-score",
+  },
   { label: "last", fullLabel: "最終プレー", sortMode: "latest", className: "song-table-col-date" },
   { label: "plays", fullLabel: "履歴件数", sortMode: "entryCount", className: "song-table-col-count" },
 ];
+
+function getTableColumnSortState(column, sortMode, sortDirection) {
+  const sortModes = column.sortModes ?? [column.sortMode];
+  if (!sortModes.includes(sortMode)) {
+    return null;
+  }
+
+  const sortModeIndex = sortModes.indexOf(sortMode);
+  return {
+    sortModeIndex,
+    direction: sortDirection === "desc" ? "desc" : "asc",
+  };
+}
+
+function formatTableColumnLabel(column, sortState) {
+  return column.label;
+}
+
+function formatTableColumnSortLabel(column, sortState) {
+  if (!sortState || !column.sortModes) {
+    return `${column.fullLabel}で並び替え`;
+  }
+
+  const directionLabel = sortState.direction === "desc" ? "降順" : "昇順";
+  const primaryLabels = column.sortModes[0] === "bestBp"
+    ? ["最小BP", "最新BP"]
+    : ["最高スコア", "最新スコア"];
+  return `${column.fullLabel}: ${primaryLabels[sortState.sortModeIndex]} ${directionLabel}`;
+}
+
+function createTableSortIndicator(direction) {
+  const indicator = document.createElement("span");
+  indicator.className = "song-table-sort-indicator";
+  indicator.textContent = direction === "desc" ? "▼" : "▲";
+  return indicator;
+}
 
 function renderCatalogTable(songs, selectedTitle, options = {}) {
   const wrap = document.createElement("div");
@@ -366,8 +430,15 @@ function renderCatalogTable(songs, selectedTitle, options = {}) {
   table.className = "song-table";
 
   const headerRow = document.createElement("tr");
+  const bandHeader = document.createElement("th");
+  bandHeader.className = "song-table-lamp-band-header";
+  bandHeader.scope = "col";
+  bandHeader.setAttribute("aria-hidden", "true");
+  headerRow.appendChild(bandHeader);
+
   TABLE_COLUMNS.forEach((column) => {
-    const isActiveSort = options.sortMode === column.sortMode;
+    const sortState = getTableColumnSortState(column, options.sortMode, options.sortDirection);
+    const isActiveSort = Boolean(sortState);
     const header = document.createElement("th");
     header.className = column.className;
     header.scope = "col";
@@ -383,14 +454,24 @@ function renderCatalogTable(songs, selectedTitle, options = {}) {
     }
     button.type = "button";
     button.dataset.tableSortMode = column.sortMode;
-    button.textContent = column.label;
-    button.title = `${column.fullLabel}で並び替え`;
-    button.setAttribute("aria-label", `${column.fullLabel}で並び替え`);
-    if (isActiveSort) {
-      const indicator = document.createElement("span");
-      indicator.className = "song-table-sort-indicator";
-      indicator.textContent = options.sortDirection === "desc" ? "▼" : "▲";
-      button.appendChild(indicator);
+    const label = document.createElement("span");
+    label.className = "song-table-sort-label";
+    label.textContent = formatTableColumnLabel(column, sortState);
+    button.appendChild(label);
+    button.title = formatTableColumnSortLabel(column, sortState);
+    button.setAttribute("aria-label", formatTableColumnSortLabel(column, sortState));
+    if (isActiveSort && column.sortModes) {
+      const group = document.createElement("span");
+      group.className = "song-table-sort-composite";
+      const indicator = createTableSortIndicator(options.sortDirection);
+      if (sortState.sortModeIndex === 0) {
+        group.append(indicator, document.createTextNode("/"));
+      } else {
+        group.append(document.createTextNode("/"), indicator);
+      }
+      button.appendChild(group);
+    } else if (isActiveSort) {
+      button.appendChild(createTableSortIndicator(options.sortDirection));
     }
 
     header.appendChild(button);
@@ -427,7 +508,8 @@ function renderCatalogTable(songs, selectedTitle, options = {}) {
     row.dataset.catalogKey = encodedCatalogItemKey;
     row.style.setProperty("--card-lamp-color", lampColor);
 
-    appendTableCell(row, formatTableDifficultyLabel(song), "song-table-number song-table-band-cell song-table-col-level");
+    appendLampBandCell(row);
+    appendTableCell(row, formatTableDifficultyLabel(song), "song-table-number song-table-col-level");
     appendTableCell(row, formatTableSplv(song), "song-table-number song-table-col-splv");
     appendTableCell(row, formatTableKatate(song), "song-table-number song-table-col-katate");
     appendTableCell(row, formatTableVersion(song), "song-table-version song-table-col-version");
@@ -442,10 +524,8 @@ function renderCatalogTable(songs, selectedTitle, options = {}) {
     appendTableCell(row, String(song?.bpm ?? "").trim() || "-", "song-table-number song-table-col-bpm");
     appendTableCell(row, formatRecommendDisplay(song.recommend), "song-table-recommend song-table-col-recommend");
     appendTableCell(row, song.bestLamp || "NO PLAY", "song-table-lamp song-table-col-lamp");
-    appendTableCell(row, formatBp(song.bestBp), "song-table-number song-table-col-bp");
-    appendTableCell(row, formatBp(song.currentBp), "song-table-number song-table-col-bp");
-    appendTableCell(row, formatScoreRankDisplay(song.bestScoreLabel), "song-table-number song-table-col-score");
-    appendTableCell(row, formatScoreRankDisplay(song.currentScoreLabel), "song-table-number song-table-col-score");
+    appendTableCell(row, formatTableBpPair(song), "song-table-number song-table-col-bp");
+    appendTableCell(row, formatTableScorePair(song), "song-table-number song-table-col-score");
     appendTableCell(row, formatDate(song.latestDate), "song-table-number song-table-col-date");
     appendTableCell(row, String(song.entryCount ?? 0), "song-table-number song-table-col-count");
 

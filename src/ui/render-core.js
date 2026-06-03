@@ -1591,6 +1591,7 @@ export function createRenderer(store) {
         summaryDisplayMode: effectiveSummaryDisplayMode,
       });
       renderPaginationComponent(nodes.catalogPaginationTop, snapshot.pagination, {
+        showRandomSortButton: snapshot.catalogViewMode === "table",
         showSortDirectionToggle: snapshot.catalogViewMode !== "table",
         sortDirection: snapshot.sortDirection,
         sortMode: snapshot.sortMode,

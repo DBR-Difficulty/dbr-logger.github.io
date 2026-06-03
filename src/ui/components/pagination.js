@@ -283,6 +283,16 @@ export function renderPagination(container, pagination, options = {}) {
   const controls = document.createElement("div");
   controls.className = "pagination-controls";
 
+  if (options.showRandomSortButton) {
+    const button = document.createElement("button");
+    button.className = "button button-tertiary catalog-sort-control-button";
+    button.type = "button";
+    button.dataset.randomSortToggle = "";
+    button.setAttribute("aria-label", options.sortMode === "random" ? "ランダム順を変更" : "ランダム順に並び替え");
+    button.textContent = "？";
+    controls.appendChild(button);
+  }
+
   if (options.showSortDirectionToggle && options.sortMode === "chartDifficulty") {
     const button = document.createElement("button");
     button.className = "button button-tertiary chart-difficulty-head-button";

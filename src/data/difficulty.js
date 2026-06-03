@@ -6,6 +6,7 @@ const { formatLocalDateTime } = await import(`../utils/date.js${MODULE_VERSION}`
 
 const DIFFICULTY_DATA_URL_ALLOWED_HOSTS = new Set([
   "dbr-difficulty.github.io",
+  "dbr-proxy.vercel.app",
   "script.google.com",
 ]);
 

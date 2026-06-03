@@ -14,14 +14,20 @@
   --accent-soft: rgba(13, 138, 148, 0.12);
   --warm: #ff8a3d;
   --danger: #d95b4d;
+  --table-header-bg: #f7f1e8;
+  --table-row-bg: #fffdf7;
+  --table-hover-bg: #eef8f7;
+  --table-selected-bg: #e7f5f5;
+  --table-proposed-bg: #fff4c7;
+  --table-selected-proposed-bg: #edf0dd;
   --lamp-no-play: #d7dadd;
   --lamp-failed: #7f4742;
   --lamp-assist: #bd82d4;
   --lamp-easy: #86c790;
   --lamp-clear: #b0e2ff;
   --lamp-hard: #e06767;
-  --lamp-exh: #f2d94f;
-  --lamp-fc: #ed9848;
+  --lamp-exh: #ffe76a;
+  --lamp-fc: #f5a85a;
   --shadow: 0 24px 60px rgba(43, 54, 61, 0.12);
   --radius-xl: 28px;
   --radius-lg: 20px;
@@ -48,6 +54,12 @@ html[data-theme="dark"] {
   --accent-soft: rgba(83, 199, 207, 0.14);
   --warm: #ffb15a;
   --danger: #ff8d7d;
+  --table-header-bg: #1a2228;
+  --table-row-bg: #161d22;
+  --table-hover-bg: #1c3035;
+  --table-selected-bg: #1d383c;
+  --table-proposed-bg: #252415;
+  --table-selected-proposed-bg: #263126;
   --lamp-no-play: #242a2e;
   --lamp-failed: #623834;
   --lamp-assist: #82508f;
@@ -72,6 +84,8 @@ body,
 
 html {
   background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -1262,6 +1276,7 @@ html[data-theme="dark"] .summary-filters-toggle {
   border-left: 0;
   border-right: 0;
   border-radius: 0;
+  container-type: inline-size;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
@@ -1274,7 +1289,6 @@ html[data-theme="dark"] .summary-filters-toggle {
   border-spacing: 0;
   color: var(--text);
   font-size: 0.72rem;
-  line-height: 1.25;
   min-width: 100%;
   table-layout: auto;
   width: max-content;
@@ -1283,14 +1297,14 @@ html[data-theme="dark"] .summary-filters-toggle {
 .song-table th,
 .song-table td {
   border-bottom: 1px solid var(--border);
-  padding: 5px;
+  padding: 3px;
   text-align: left;
   vertical-align: middle;
   white-space: nowrap;
 }
 
 .song-table th {
-  background: rgba(36, 50, 56, 0.04);
+  background: var(--table-header-bg);
   color: var(--muted);
   font-family: var(--font-ui);
   font-size: 0.66rem;
@@ -1299,6 +1313,43 @@ html[data-theme="dark"] .summary-filters-toggle {
   position: sticky;
   top: 0;
   z-index: 2;
+}
+
+.song-table th.song-table-lamp-band-header,
+.song-table td.song-table-lamp-band-cell {
+  left: 0;
+  font-size: 0;
+  line-height: 0;
+  max-width: 4px;
+  min-width: 4px;
+  overflow: hidden;
+  padding: 0;
+  position: sticky;
+  width: 4px;
+}
+
+.song-table th.song-table-lamp-band-header {
+  background: var(--table-header-bg);
+  z-index: 6;
+}
+
+.song-table-lamp-band-cell {
+  background: linear-gradient(var(--card-lamp-color, transparent), var(--card-lamp-color, transparent)), var(--table-row-bg);
+  z-index: 4;
+}
+
+.song-table th.song-table-col-title {
+  background: var(--table-header-bg);
+  left: 4px;
+  position: sticky;
+  z-index: 5;
+}
+
+.song-table td.song-table-col-title {
+  background: var(--table-row-bg);
+  left: 4px;
+  position: sticky;
+  z-index: 3;
 }
 
 .song-table-sort-button {
@@ -1316,7 +1367,7 @@ html[data-theme="dark"] .summary-filters-toggle {
   min-height: 28px;
   min-width: 0;
   overflow: visible;
-  padding: 4px 6px;
+  padding: 3px;
   text-align: inherit;
   -webkit-tap-highlight-color: transparent;
   white-space: nowrap;
@@ -1324,11 +1375,10 @@ html[data-theme="dark"] .summary-filters-toggle {
 }
 
 .song-table th.is-active-sort {
-  background: rgba(13, 138, 148, 0.08);
+  background: #deeee8;
   color: var(--text);
 }
 
-.song-table-sort-button:hover,
 .song-table-sort-button:active {
   background: transparent;
 }
@@ -1343,12 +1393,24 @@ html[data-theme="dark"] .summary-filters-toggle {
   outline-offset: -2px;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .song-table-sort-button:hover {
+    background: rgba(13, 138, 148, 0.12);
+  }
+}
+
 .song-table-sort-indicator {
   flex: 0 0 auto;
   font-size: 0.72em;
   line-height: 1;
   min-width: 0.75em;
   text-align: center;
+}
+
+.song-table-sort-composite {
+  align-items: center;
+  display: inline-flex;
+  gap: 0;
 }
 
 .song-table tbody tr:last-child td {
@@ -1375,26 +1437,42 @@ html[data-theme="dark"] .summary-filters-toggle {
   position: static;
 }
 
+.song-table-row.song-card > .song-table-lamp-band-cell {
+  position: sticky;
+}
+
 .song-table-row.is-selected td {
-  background: rgba(13, 138, 148, 0.08);
+  background: var(--table-selected-bg);
 }
 
 .song-table-row.is-proposed td {
-  background: rgba(255, 230, 100, 0.12);
+  background: var(--table-proposed-bg);
 }
 
 .song-table-row.is-selected.is-proposed td {
-  background: linear-gradient(0deg, rgba(13, 138, 148, 0.08), rgba(13, 138, 148, 0.08)), rgba(255, 230, 100, 0.12);
+  background: var(--table-selected-proposed-bg);
+}
+
+.song-table-row.is-selected td.song-table-lamp-band-cell,
+.song-table-row.is-proposed td.song-table-lamp-band-cell,
+.song-table-row.is-selected.is-proposed td.song-table-lamp-band-cell {
+  background: linear-gradient(var(--card-lamp-color, transparent), var(--card-lamp-color, transparent)), var(--table-row-bg);
+}
+
+.song-table-row.is-selected td.song-table-col-title {
+  background: var(--table-selected-bg);
+}
+
+.song-table-row.is-proposed td.song-table-col-title {
+  background: var(--table-proposed-bg);
+}
+
+.song-table-row.is-selected.is-proposed td.song-table-col-title {
+  background: var(--table-selected-proposed-bg);
 }
 
 .song-table-row.is-deleted-record {
   opacity: 0.52;
-}
-
-.song-table td.song-table-band-cell {
-  border-left: 0;
-  box-shadow: inset 4px 0 0 var(--card-lamp-color, transparent);
-  padding-left: 8px;
 }
 
 .song-table-number,
@@ -1413,10 +1491,10 @@ html[data-theme="dark"] .summary-filters-toggle {
   color: var(--text);
   font-family: var(--font-song);
   font-weight: 800;
-  max-width: 150px;
-  min-width: 150px;
+  max-width: clamp(96px, 18cqw, 140px);
+  min-width: clamp(96px, 18cqw, 140px);
   white-space: normal;
-  width: 150px;
+  width: clamp(96px, 18cqw, 140px);
 }
 
 .song-table-title {
@@ -1432,7 +1510,7 @@ html[data-theme="dark"] .summary-filters-toggle {
 }
 
 .song-table-col-title {
-  width: 150px;
+  width: clamp(96px, 18cqw, 140px);
 }
 
 @media (hover: hover) {
@@ -1447,7 +1525,15 @@ html[data-theme="dark"] .summary-filters-toggle {
   }
 
   .song-table-row.song-card:hover td {
-    background: rgba(13, 138, 148, 0.06);
+    background: var(--table-hover-bg);
+  }
+
+  .song-table-row.song-card:hover td.song-table-col-title {
+    background: var(--table-hover-bg);
+  }
+
+  .song-table-row.song-card:hover td.song-table-lamp-band-cell {
+    background: linear-gradient(var(--card-lamp-color, transparent), var(--card-lamp-color, transparent)), var(--table-row-bg);
   }
 }
 
@@ -2480,15 +2566,22 @@ html[data-theme="dark"] .proposal-form {
 }
 
 html[data-theme="dark"] .song-table th {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--table-header-bg);
+}
+
+html[data-theme="dark"] .song-table th.song-table-lamp-band-header {
+  background: var(--table-header-bg);
+}
+
+html[data-theme="dark"] .song-table td.song-table-col-title {
+  background: var(--table-row-bg);
 }
 
 html[data-theme="dark"] .song-table th.is-active-sort {
-  background: rgba(83, 199, 207, 0.1);
+  background: #213239;
   color: var(--text);
 }
 
-html[data-theme="dark"] .song-table-sort-button:hover,
 html[data-theme="dark"] .song-table-sort-button:active {
   background: transparent;
 }
@@ -2496,6 +2589,12 @@ html[data-theme="dark"] .song-table-sort-button:active {
 html[data-theme="dark"] .song-table-sort-button.is-active {
   background: transparent;
   color: var(--text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html[data-theme="dark"] .song-table-sort-button:hover {
+    background: rgba(83, 199, 207, 0.14);
+  }
 }
 
 html[data-theme="dark"] .proposal-success {
@@ -2534,15 +2633,33 @@ html[data-theme="dark"] .song-card.is-selected {
 }
 
 html[data-theme="dark"] .song-table-row.is-selected td {
-  background: rgba(83, 199, 207, 0.1);
+  background: var(--table-selected-bg);
 }
 
 html[data-theme="dark"] .song-table-row.is-proposed td {
-  background: rgba(255, 217, 102, 0.05);
+  background: var(--table-proposed-bg);
 }
 
 html[data-theme="dark"] .song-table-row.is-selected.is-proposed td {
-  background: linear-gradient(0deg, rgba(83, 199, 207, 0.1), rgba(83, 199, 207, 0.1)), rgba(255, 217, 102, 0.05);
+  background: var(--table-selected-proposed-bg);
+}
+
+html[data-theme="dark"] .song-table-row.is-selected td.song-table-lamp-band-cell,
+html[data-theme="dark"] .song-table-row.is-proposed td.song-table-lamp-band-cell,
+html[data-theme="dark"] .song-table-row.is-selected.is-proposed td.song-table-lamp-band-cell {
+  background: linear-gradient(var(--card-lamp-color, transparent), var(--card-lamp-color, transparent)), var(--table-row-bg);
+}
+
+html[data-theme="dark"] .song-table-row.is-selected td.song-table-col-title {
+  background: var(--table-selected-bg);
+}
+
+html[data-theme="dark"] .song-table-row.is-proposed td.song-table-col-title {
+  background: var(--table-proposed-bg);
+}
+
+html[data-theme="dark"] .song-table-row.is-selected.is-proposed td.song-table-col-title {
+  background: var(--table-selected-proposed-bg);
 }
 
 @media (hover: hover) {
@@ -2555,7 +2672,15 @@ html[data-theme="dark"] .song-table-row.is-selected.is-proposed td {
   }
 
   html[data-theme="dark"] .song-table-row.song-card:hover td {
-    background: rgba(83, 199, 207, 0.08);
+    background: var(--table-hover-bg);
+  }
+
+  html[data-theme="dark"] .song-table-row.song-card:hover td.song-table-col-title {
+    background: var(--table-hover-bg);
+  }
+
+  html[data-theme="dark"] .song-table-row.song-card:hover td.song-table-lamp-band-cell {
+    background: linear-gradient(var(--card-lamp-color, transparent), var(--card-lamp-color, transparent)), var(--table-row-bg);
   }
 }
 
@@ -3316,7 +3441,7 @@ html[data-theme="dark"] .proposal-success-body a {
 
   .song-table th,
   .song-table td {
-    padding: 4px;
+    padding: 3px;
   }
 
   .song-table th {
@@ -3324,9 +3449,13 @@ html[data-theme="dark"] .proposal-success-body a {
   }
 
   .song-table td.song-table-title-cell {
-    max-width: 140px;
-    min-width: 140px;
-    width: 140px;
+    max-width: clamp(88px, 28cqw, 120px);
+    min-width: clamp(88px, 28cqw, 120px);
+    width: clamp(88px, 28cqw, 120px);
+  }
+
+  .song-table-col-title {
+    width: clamp(88px, 28cqw, 120px);
   }
 
   .pagination-bar-top {
