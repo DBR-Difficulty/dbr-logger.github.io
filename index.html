@@ -121,7 +121,12 @@
             <div id="catalog-pagination-bottom" class="pagination-bar-bottom"></div>
           </section>
 
-          <section class="stack">
+          <section id="selected-workspace" class="stack selected-workspace">
+            <button id="selected-workspace-close" class="selected-workspace-close" type="button" aria-label="ドロワーを閉じる" title="閉じる">
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2"></path>
+              </svg>
+            </button>
             <section id="entry-panel" class="panel">
               <div class="panel-header">
                 <div>
@@ -174,7 +179,7 @@
                 <div class="form-actions">
                   <div class="action-group">
                     <button id="record-submit-button" class="button button-primary" type="submit" disabled>保存する</button>
-                    <button id="back-to-card-button" class="button button-tertiary" type="button">戻る</button>
+                    <button id="selected-workspace-form-close" class="button button-tertiary selected-workspace-form-close" type="button">閉じる</button>
                   </div>
                 </div>
               </form>

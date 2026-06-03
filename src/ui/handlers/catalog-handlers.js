@@ -47,7 +47,7 @@ function resolveCatalogSelectionFromDataset(button, store) {
 export function bindCatalogHandlers({
   nodes,
   store,
-  scrollEntryPanelIntoView,
+  openSelectedWorkspace = () => {},
   setPendingCatalogBottomNextScroll,
   setPendingCatalogBottomLock,
 }) {
@@ -79,7 +79,7 @@ export function bindCatalogHandlers({
   function selectCatalogItemFromElement(element) {
     const selection = resolveCatalogSelectionFromDataset(element, store);
     store.selectSong(selection.title, selection.catalogItemKey);
-    window.requestAnimationFrame(scrollEntryPanelIntoView);
+    openSelectedWorkspace();
   }
 
   nodes.catalog.addEventListener("click", (event) => {

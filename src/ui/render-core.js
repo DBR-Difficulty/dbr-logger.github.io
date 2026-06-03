@@ -1,7 +1,6 @@
 const MODULE_VERSION = new URL(import.meta.url).search;
 
 const { LAMP_OPTIONS } = await import(`../constants.js${MODULE_VERSION}`);
-const { datasetValueMatches } = await import(`./dataset.js${MODULE_VERSION}`);
 const { renderBpChart, renderScoreChart } = await import(`./chart.js${MODULE_VERSION}`);
 const { todayIso } = await import(`../utils/date.js${MODULE_VERSION}`);
 const { renderProposalButton } = await import(`./proposal.js${MODULE_VERSION}`);
@@ -144,6 +143,7 @@ export function createRenderer(store) {
   let floatingAxisRangeShortcutPending = false;
   let floatingDateShortcutPending = false;
   let floatingDatePreviewValue = null;
+  let selectedWorkspaceOpen = false;
   let floatingAxisLastValues = {
     level: "",
     splv: "",
@@ -165,6 +165,7 @@ export function createRenderer(store) {
   let pendingQueryBlurIntent = null;
   let floatingAxisSingleDragState = null;
   let floatingAxisRangeDragState = null;
+  let selectedWorkspaceDragState = null;
   let lastScrollY = window.scrollY;
   let lastUserScrollAt = 0;
   let floatingDockSide = "bottom";
@@ -184,8 +185,127 @@ export function createRenderer(store) {
   }
 
   let scrollEntryPanelIntoView;
-  let scrollSelectedCardIntoView;
   let scrollCatalogPanelIntoView;
+
+  function openSelectedWorkspace() {
+    selectedWorkspaceOpen = true;
+    if (nodes.selectedWorkspace) {
+      if (window.matchMedia("(max-width: 1080px)").matches) {
+        nodes.selectedWorkspace.scrollTop = 0;
+      }
+      nodes.selectedWorkspace.classList.add("is-open");
+    }
+  }
+
+  function closeSelectedWorkspace() {
+    selectedWorkspaceOpen = false;
+    if (nodes.selectedWorkspace) {
+      nodes.selectedWorkspace.classList.remove("is-open", "is-dragging");
+      nodes.selectedWorkspace.style.removeProperty("--drawer-drag-y");
+    }
+  }
+
+  function isSelectedWorkspaceDrawerMode() {
+    return window.matchMedia("(max-width: 1080px)").matches;
+  }
+
+  function isSelectedWorkspaceSwipeEnvironment() {
+    return isSelectedWorkspaceDrawerMode() && (
+      window.matchMedia("(hover: none)").matches
+      || window.matchMedia("(pointer: coarse)").matches
+    );
+  }
+
+  function isDrawerSwipeIgnoredTarget(target) {
+    return target instanceof Element && Boolean(target.closest("input, select, textarea, button, a, [contenteditable='true']"));
+  }
+
+  function getTouchPoint(event, changed = false) {
+    const touches = changed ? event.changedTouches : event.touches;
+    return touches.length === 1 ? touches[0] : null;
+  }
+
+  function handleSelectedWorkspaceTouchStart(event) {
+    const point = getTouchPoint(event);
+    if (
+      !point
+      || !isSelectedWorkspaceSwipeEnvironment()
+      || !nodes.selectedWorkspace
+      || (!selectedWorkspaceOpen && !nodes.selectedWorkspace.classList.contains("is-open"))
+      || nodes.selectedWorkspace.scrollTop > 0
+      || isDrawerSwipeIgnoredTarget(event.target)
+    ) {
+      return;
+    }
+
+    selectedWorkspaceDragState = {
+      startX: point.clientX,
+      startY: point.clientY,
+      lastY: point.clientY,
+      lastTimestamp: event.timeStamp,
+      velocityY: 0,
+      dragging: false,
+    };
+  }
+
+  function handleSelectedWorkspaceTouchMove(event) {
+    const point = getTouchPoint(event);
+    if (!point || !selectedWorkspaceDragState || !nodes.selectedWorkspace) {
+      return;
+    }
+
+    const deltaX = point.clientX - selectedWorkspaceDragState.startX;
+    const deltaY = point.clientY - selectedWorkspaceDragState.startY;
+    if (!selectedWorkspaceDragState.dragging) {
+      if (Math.abs(deltaX) > 24 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        selectedWorkspaceDragState = null;
+        return;
+      }
+      if (deltaY > 0) {
+        event.preventDefault();
+      }
+      if (deltaY <= 4) {
+        return;
+      }
+      selectedWorkspaceDragState.dragging = true;
+      nodes.selectedWorkspace.classList.add("is-dragging");
+    }
+
+    const dragY = Math.max(0, deltaY);
+    const elapsed = Math.max(1, event.timeStamp - selectedWorkspaceDragState.lastTimestamp);
+    selectedWorkspaceDragState.velocityY = (point.clientY - selectedWorkspaceDragState.lastY) / elapsed;
+    nodes.selectedWorkspace.style.setProperty("--drawer-drag-y", `${dragY}px`);
+    selectedWorkspaceDragState.lastY = point.clientY;
+    selectedWorkspaceDragState.lastTimestamp = event.timeStamp;
+    event.preventDefault();
+  }
+
+  function finishSelectedWorkspaceTouch(event) {
+    const point = getTouchPoint(event, true);
+    if (!point || !selectedWorkspaceDragState || !nodes.selectedWorkspace) {
+      return;
+    }
+
+    const deltaY = point.clientY - selectedWorkspaceDragState.startY;
+    const velocityY = selectedWorkspaceDragState.velocityY;
+    const endingUpward = point.clientY < selectedWorkspaceDragState.lastY || velocityY < -0.05;
+    const shouldClose = selectedWorkspaceDragState.dragging
+      && !endingUpward
+      && (deltaY >= 80 || (deltaY >= 40 && velocityY > 0.5));
+
+    nodes.selectedWorkspace.classList.remove("is-dragging");
+    selectedWorkspaceDragState = null;
+
+    if (shouldClose) {
+      closeSelectedWorkspace();
+      return;
+    }
+
+    nodes.selectedWorkspace.style.setProperty("--drawer-drag-y", "0px");
+    window.requestAnimationFrame(() => {
+      nodes.selectedWorkspace?.style.removeProperty("--drawer-drag-y");
+    });
+  }
 
   function resetFloatingFilterFocusState() {
     floatingQueryFocused = false;
@@ -711,9 +831,14 @@ export function createRenderer(store) {
   const nodes = collectRendererNodes();
 
   initializeRendererNodeClasses(nodes);
+  nodes.selectedWorkspaceCloseButton?.addEventListener("click", closeSelectedWorkspace);
+  nodes.selectedWorkspaceFormCloseButton?.addEventListener("click", closeSelectedWorkspace);
+  nodes.selectedWorkspace?.addEventListener("touchstart", handleSelectedWorkspaceTouchStart, { passive: true });
+  nodes.selectedWorkspace?.addEventListener("touchmove", handleSelectedWorkspaceTouchMove, { passive: false });
+  nodes.selectedWorkspace?.addEventListener("touchend", finishSelectedWorkspaceTouch);
+  nodes.selectedWorkspace?.addEventListener("touchcancel", finishSelectedWorkspaceTouch);
   ({
     scrollEntryPanelIntoView,
-    scrollSelectedCardIntoView,
     scrollCatalogPanelIntoView,
   } = createScrollController({
     nodes,
@@ -1484,7 +1609,7 @@ export function createRenderer(store) {
   bindCatalogHandlers({
     nodes,
     store,
-    scrollEntryPanelIntoView,
+    openSelectedWorkspace,
     setPendingCatalogBottomNextScroll: (value) => { pendingCatalogBottomNextScroll = value; },
     setPendingCatalogBottomLock: (value) => { pendingCatalogBottomLock = value; },
   });
@@ -1524,7 +1649,6 @@ export function createRenderer(store) {
     getEntryFormDirty: () => entryFormDirty,
     limitNumberInput,
     setEntryBpInputMode,
-    scrollSelectedCardIntoView,
   });
 
   bindIoHandlers({
@@ -1634,19 +1758,8 @@ export function createRenderer(store) {
       }
 
       nodes.catalogMeta.textContent = "";
-      const selectedCardExists = snapshot.selectedSong
-        ? Array.from(nodes.catalog?.querySelectorAll(".song-card") ?? []).some((card) => (
-            snapshot.selectedCatalogKey
-              ? datasetValueMatches(card.dataset.catalogKey, snapshot.selectedCatalogKey)
-              : datasetValueMatches(card.dataset.title, snapshot.selectedSong.title)
-          ))
-        : false;
 
       syncRecordFormWithSnapshot(nodes, snapshot, { setDirty: setEntryFormDirty });
-
-      if (nodes.backToCardButton) {
-        nodes.backToCardButton.disabled = !selectedCardExists;
-      }
       if (nodes.catalogSortSelect) {
         renderCatalogSortOptionsComponent(nodes.catalogSortSelect, snapshot.filters.displayMode, snapshot.sortMode);
         nodes.catalogSortSelect.closest(".header-select")?.toggleAttribute("hidden", snapshot.catalogViewMode === "table");

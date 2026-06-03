@@ -11,7 +11,6 @@ export function bindRecordFormHandlers({
   getEntryFormDirty,
   limitNumberInput,
   setEntryBpInputMode,
-  scrollSelectedCardIntoView,
 }) {
   [nodes.bpInput, nodes.badInput, nodes.poorInput, nodes.scoreInput].forEach((input) => input?.addEventListener("wheel", (event) => {
     if (document.activeElement === input) {
@@ -86,9 +85,5 @@ export function bindRecordFormHandlers({
     });
   });
 
-  nodes.backToCardButton?.addEventListener("click", () => {
-    scrollSelectedCardIntoView();
-  });
 }
-
 
