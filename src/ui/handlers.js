@@ -1,3 +1,23 @@
+const MODULE_VERSION = new URL(import.meta.url).search;
+
+const [
+  ioHandlers,
+  globalHandlers,
+  catalogHandlers,
+  keyboardHandlers,
+  formHandlers,
+  filterOptions,
+  floatingFilterHandlers,
+] = await Promise.all([
+  import(`./handlers/io-handlers.js${MODULE_VERSION}`),
+  import(`./handlers/global-handlers.js${MODULE_VERSION}`),
+  import(`./handlers/catalog-handlers.js${MODULE_VERSION}`),
+  import(`./handlers/keyboard-handlers.js${MODULE_VERSION}`),
+  import(`./handlers/form-handlers.js${MODULE_VERSION}`),
+  import(`./filter-options.js${MODULE_VERSION}`),
+  import(`./handlers/floating-filter-handlers.js${MODULE_VERSION}`),
+]);
+
 const LAMP_COLORS = {
   "NO PLAY": "var(--lamp-no-play)",
   FAILED: "var(--lamp-failed)",
@@ -31,14 +51,8 @@ const getCardBandColor = (song, summaryDisplayMode = "clear") => (
 );
 const getScoreRankSummaryLabel = (rank) => rank === "F" ? "F/※" : rank;
 
-export {
-  getSummaryBandLampColor,
-  getCardBandColor,
-  getScoreRankSummaryLabel
-};
-
-export { bindIoHandlers } from "./handlers/io-handlers.js";
-export {
+const { bindIoHandlers } = ioHandlers;
+const {
   bindFloatingOutsideHandlers,
   bindFloatingScroll,
   bindNumberInputWheelGuard,
@@ -54,13 +68,133 @@ export {
   applyTheme,
   THEME_STORAGE_KEY,
   SUMMARY_FILTERS_OPEN_STORAGE_KEY,
-} from "./handlers/global-handlers.js";
-export { bindCatalogHandlers, bindSummaryHandlers } from "./handlers/catalog-handlers.js";
-export { bindKeyboardHandlers } from "./handlers/keyboard-handlers.js";
-export {
+} = globalHandlers;
+const { bindCatalogHandlers, bindSummaryHandlers } = catalogHandlers;
+const { bindKeyboardHandlers } = keyboardHandlers;
+const {
   bindRecordFormHandlers,
   ENTRY_BP_INPUT_MODE_STORAGE_KEY,
   ENTRY_BP_INPUT_MODES,
-} from "./handlers/form-handlers.js";
-export * from "./filter-options.js";
-export * from "./handlers/floating-filter-handlers.js";
+} = formHandlers;
+const { bindFloatingFilterHandlers } = floatingFilterHandlers;
+const {
+  RECOMMEND_OPTIONS,
+  RECOMMEND_SORT_VALUES,
+  CHART_DIFFICULTY_OPTIONS,
+  CHART_SUFFIX_ORDER,
+  DISPLAY_MODE_OPTIONS,
+  SUMMARY_DISPLAY_MODE_OPTIONS,
+  CATALOG_SORT_OPTIONS,
+  SCORE_RANK_OPTIONS,
+  SCORE_RANK_SUMMARY_OPTIONS,
+  SCORE_RANK_FILTER_OPTIONS,
+  SONG_DATA_FILTER_OPTIONS,
+  SUMMARY_LAMP_DOUBLE_CLICK_MS,
+  SUMMARY_LAMP_SWIPE_SOLO_THRESHOLD,
+  AXIS_OPTIONS,
+  AXIS_SHORTCUT_KEYS,
+  HIDDEN_FLOATING_CLEAR_AXES,
+  BPM_BUCKETS,
+  BPM_RANGE_POINTS,
+  VERSION_ORDER_VALUES,
+  VERSION_LABELS,
+  isTextAxisMode,
+  isDateAxisMode,
+  isNumericAxisMode,
+  isRangeOnlyAxisMode,
+  getSongDataFilterOption,
+  parseKatateFilterValue,
+  formatKatateFilterValue,
+  getAxisLabel,
+  getAxisValues,
+  getAxisRangeValues,
+  getBpmBucket,
+  getBpmRangePoint,
+  formatBpmRangeValue,
+  formatAxisValue,
+  formatDateRangeValue,
+  isAxisRangeMode,
+  hasAxisCandidate,
+  getAxisRangeMinGap,
+  getNormalizedAxisRange,
+  formatAxisRangeValue,
+  getHistoryDateNeighbor,
+  summarizeAxisFilter,
+  getEffectiveSummaryDisplayMode,
+  findClosestValue,
+  findValueIndex,
+} = filterOptions;
+
+export {
+  getSummaryBandLampColor,
+  getCardBandColor,
+  getScoreRankSummaryLabel,
+  bindIoHandlers,
+  bindFloatingOutsideHandlers,
+  bindFloatingScroll,
+  bindNumberInputWheelGuard,
+  bindSummaryFilterPanelHandlers,
+  bindThemeToggle,
+  bindWindowResize,
+  createScrollController,
+  isDifficultyTableStale,
+  getCurrentTheme,
+  persistTheme,
+  loadSummaryFiltersOpen,
+  persistSummaryFiltersOpen,
+  applyTheme,
+  THEME_STORAGE_KEY,
+  SUMMARY_FILTERS_OPEN_STORAGE_KEY,
+  bindCatalogHandlers,
+  bindSummaryHandlers,
+  bindKeyboardHandlers,
+  bindRecordFormHandlers,
+  ENTRY_BP_INPUT_MODE_STORAGE_KEY,
+  ENTRY_BP_INPUT_MODES,
+  bindFloatingFilterHandlers,
+  RECOMMEND_OPTIONS,
+  RECOMMEND_SORT_VALUES,
+  CHART_DIFFICULTY_OPTIONS,
+  CHART_SUFFIX_ORDER,
+  DISPLAY_MODE_OPTIONS,
+  SUMMARY_DISPLAY_MODE_OPTIONS,
+  CATALOG_SORT_OPTIONS,
+  SCORE_RANK_OPTIONS,
+  SCORE_RANK_SUMMARY_OPTIONS,
+  SCORE_RANK_FILTER_OPTIONS,
+  SONG_DATA_FILTER_OPTIONS,
+  SUMMARY_LAMP_DOUBLE_CLICK_MS,
+  SUMMARY_LAMP_SWIPE_SOLO_THRESHOLD,
+  AXIS_OPTIONS,
+  AXIS_SHORTCUT_KEYS,
+  HIDDEN_FLOATING_CLEAR_AXES,
+  BPM_BUCKETS,
+  BPM_RANGE_POINTS,
+  VERSION_ORDER_VALUES,
+  VERSION_LABELS,
+  isTextAxisMode,
+  isDateAxisMode,
+  isNumericAxisMode,
+  isRangeOnlyAxisMode,
+  getSongDataFilterOption,
+  parseKatateFilterValue,
+  formatKatateFilterValue,
+  getAxisLabel,
+  getAxisValues,
+  getAxisRangeValues,
+  getBpmBucket,
+  getBpmRangePoint,
+  formatBpmRangeValue,
+  formatAxisValue,
+  formatDateRangeValue,
+  isAxisRangeMode,
+  hasAxisCandidate,
+  getAxisRangeMinGap,
+  getNormalizedAxisRange,
+  formatAxisRangeValue,
+  getHistoryDateNeighbor,
+  summarizeAxisFilter,
+  getEffectiveSummaryDisplayMode,
+  findClosestValue,
+  findValueIndex,
+};
