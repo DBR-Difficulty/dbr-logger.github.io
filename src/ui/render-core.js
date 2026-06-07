@@ -190,9 +190,7 @@ export function createRenderer(store) {
   function openSelectedWorkspace() {
     selectedWorkspaceOpen = true;
     if (nodes.selectedWorkspace) {
-      if (window.matchMedia("(max-width: 1080px)").matches) {
-        nodes.selectedWorkspace.scrollTop = 0;
-      }
+      nodes.selectedWorkspace.scrollTop = 0;
       nodes.selectedWorkspace.classList.add("is-open");
     }
   }
@@ -205,15 +203,9 @@ export function createRenderer(store) {
     }
   }
 
-  function isSelectedWorkspaceDrawerMode() {
-    return window.matchMedia("(max-width: 1080px)").matches;
-  }
-
   function isSelectedWorkspaceSwipeEnvironment() {
-    return isSelectedWorkspaceDrawerMode() && (
-      window.matchMedia("(hover: none)").matches
-      || window.matchMedia("(pointer: coarse)").matches
-    );
+    return window.matchMedia("(hover: none)").matches
+      || window.matchMedia("(pointer: coarse)").matches;
   }
 
   function isDrawerSwipeIgnoredTarget(target) {

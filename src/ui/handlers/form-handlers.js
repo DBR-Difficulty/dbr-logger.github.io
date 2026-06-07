@@ -33,10 +33,10 @@ export function bindRecordFormHandlers({
   nodes.recordForm.addEventListener("keydown", (event) => {
     focusNextRecordFormField(event, [
       nodes.lampInput,
+      nodes.scoreInput,
       nodes.bpInput,
       nodes.badInput,
       nodes.poorInput,
-      nodes.scoreInput,
       nodes.memoInput,
     ]);
   });
@@ -86,4 +86,3 @@ export function bindRecordFormHandlers({
   });
 
 }
-
