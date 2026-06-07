@@ -804,6 +804,10 @@ export function createRenderer(store) {
   }
 
   function selectCatalogSongByShortcut(index) {
+    if (selectedWorkspaceOpen) {
+      return false;
+    }
+
     const snapshot = store.getSnapshot();
     const song = snapshot.pagedSongs[index];
 
