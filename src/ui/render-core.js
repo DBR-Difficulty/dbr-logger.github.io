@@ -1766,7 +1766,7 @@ export function createRenderer(store) {
             label: "現在は箱型表示です。一覧表示に切り替え",
           },
           list: {
-            icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v3H5zM5 10.5h14v3H5zM5 16h14v3H5z"></path><path d="M8 4v16M13 4v16" fill="none" stroke="currentColor" stroke-width="1.5"></path></svg>',
+            icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16M4 14.5h16M12 5v14" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.6"></path></svg>',
             title: "テーブル表示に切り替え",
             label: "現在は一覧表示です。テーブル表示に切り替え",
           },
