@@ -561,6 +561,10 @@ export function renderCatalog(catalogContainer, songs, selectedTitle, options = 
     const tableWrap = renderCatalogTable(songs, selectedTitle, options);
     commitCatalogChildren(catalogContainer, tableWrap);
     window.requestAnimationFrame(() => {
+      const levelHeader = tableWrap.querySelector("th.song-table-col-level");
+      if (levelHeader) {
+        tableWrap.style.setProperty("--song-table-level-width", `${levelHeader.getBoundingClientRect().width}px`);
+      }
       tableWrap.scrollLeft = previousTableScrollLeft;
     });
     return;
