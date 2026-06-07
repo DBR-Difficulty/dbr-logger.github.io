@@ -4,8 +4,10 @@ export function bindKeyboardHandlers({
   store,
   axisShortcutKeys,
   getFloatingFilterOpen,
+  getSelectedWorkspaceOpen,
   getFloatingDateShortcutPending,
   getFloatingAxisRangeShortcutPending,
+  closeSelectedWorkspace,
   setPendingQueryBlurIntent,
   isTextAxisMode,
   isEscapeBlurTarget,
@@ -26,11 +28,17 @@ export function bindKeyboardHandlers({
   documentRef.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !event.isComposing) {
       const target = event.target;
+      const shouldCloseSelectedWorkspace = getSelectedWorkspaceOpen();
       if (isEscapeBlurTarget(target)) {
         event.preventDefault();
         event.stopPropagation();
         setPendingQueryBlurIntent("escape");
         target.blur();
+      }
+      if (shouldCloseSelectedWorkspace) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeSelectedWorkspace();
       }
       return;
     }
