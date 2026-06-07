@@ -812,6 +812,7 @@ export function createRenderer(store) {
     }
 
     store.selectSong(song.title, song.catalogItemKey || `title:${song.title}`);
+    openSelectedWorkspace();
 
     window.requestAnimationFrame(() => {
       nodes.lampInput?.focus({ preventScroll: true });
