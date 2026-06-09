@@ -166,6 +166,9 @@ export function createRenderer(store) {
   let floatingAxisSingleDragState = null;
   let floatingAxisRangeDragState = null;
   let selectedWorkspaceDragState = null;
+  let selectedWorkspaceBackgroundScrollY = null;
+  let selectedWorkspaceScrollTop = 0;
+  let selectedWorkspaceViewportHeight = window.visualViewport?.height ?? window.innerHeight;
   let lastScrollY = window.scrollY;
   let lastUserScrollAt = 0;
   let floatingDockSide = "bottom";
@@ -187,10 +190,55 @@ export function createRenderer(store) {
   let scrollEntryPanelIntoView;
   let scrollCatalogPanelIntoView;
 
+  function lockSelectedWorkspaceBackground() {
+    if (!isMobileViewport() || selectedWorkspaceBackgroundScrollY !== null) {
+      return;
+    }
+
+    selectedWorkspaceBackgroundScrollY = window.scrollY;
+    document.body.style.setProperty("--selected-workspace-background-offset", `-${selectedWorkspaceBackgroundScrollY}px`);
+    document.documentElement.classList.add("selected-workspace-scroll-lock");
+    document.body.classList.add("selected-workspace-scroll-lock");
+  }
+
+  function unlockSelectedWorkspaceBackground() {
+    if (selectedWorkspaceBackgroundScrollY === null) {
+      return;
+    }
+
+    const restoreY = selectedWorkspaceBackgroundScrollY;
+    selectedWorkspaceBackgroundScrollY = null;
+    document.documentElement.classList.remove("selected-workspace-scroll-lock");
+    document.body.classList.remove("selected-workspace-scroll-lock");
+    document.body.style.removeProperty("--selected-workspace-background-offset");
+    window.scrollTo(0, restoreY);
+  }
+
+  function handleSelectedWorkspaceViewportResize() {
+    const nextHeight = window.visualViewport?.height ?? window.innerHeight;
+    const viewportExpanded = nextHeight > selectedWorkspaceViewportHeight + 1;
+    selectedWorkspaceViewportHeight = nextHeight;
+
+    if (!selectedWorkspaceOpen || selectedWorkspaceBackgroundScrollY === null || !viewportExpanded || !nodes.selectedWorkspace) {
+      return;
+    }
+
+    const restoreScrollTop = selectedWorkspaceScrollTop;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (selectedWorkspaceOpen && nodes.selectedWorkspace) {
+          nodes.selectedWorkspace.scrollTop = restoreScrollTop;
+        }
+      });
+    });
+  }
+
   function openSelectedWorkspace() {
     selectedWorkspaceOpen = true;
+    lockSelectedWorkspaceBackground();
     if (nodes.selectedWorkspace) {
       nodes.selectedWorkspace.scrollTop = 0;
+      selectedWorkspaceScrollTop = 0;
       nodes.selectedWorkspace.classList.add("is-open");
     }
   }
@@ -201,6 +249,7 @@ export function createRenderer(store) {
       nodes.selectedWorkspace.classList.remove("is-open", "is-dragging");
       nodes.selectedWorkspace.style.removeProperty("--drawer-drag-y");
     }
+    unlockSelectedWorkspaceBackground();
   }
 
   function isSelectedWorkspaceSwipeEnvironment() {
@@ -834,6 +883,10 @@ export function createRenderer(store) {
   nodes.selectedWorkspace?.addEventListener("touchmove", handleSelectedWorkspaceTouchMove, { passive: false });
   nodes.selectedWorkspace?.addEventListener("touchend", finishSelectedWorkspaceTouch);
   nodes.selectedWorkspace?.addEventListener("touchcancel", finishSelectedWorkspaceTouch);
+  nodes.selectedWorkspace?.addEventListener("scroll", () => {
+    selectedWorkspaceScrollTop = nodes.selectedWorkspace?.scrollTop ?? 0;
+  }, { passive: true });
+  window.visualViewport?.addEventListener("resize", handleSelectedWorkspaceViewportResize);
   ({
     scrollEntryPanelIntoView,
     scrollCatalogPanelIntoView,

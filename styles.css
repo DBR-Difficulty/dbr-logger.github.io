@@ -101,6 +101,20 @@ body.search-focus-scroll-lock {
   touch-action: none;
 }
 
+html.selected-workspace-scroll-lock {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body.selected-workspace-scroll-lock {
+  left: 0;
+  overflow: hidden;
+  position: fixed;
+  right: 0;
+  top: var(--selected-workspace-background-offset, 0);
+  width: 100%;
+}
+
 button,
 input,
 select,
@@ -156,6 +170,7 @@ label,
   max-height: calc(100dvh - 72px);
   max-width: none;
   overflow-y: auto;
+  overflow-anchor: none;
   overscroll-behavior: contain;
   padding: 0 16px max(16px, env(safe-area-inset-bottom));
   position: fixed;
@@ -3211,6 +3226,24 @@ html[data-theme="dark"] .proposal-success-body a {
 @media (max-width: 720px) {
   body {
     font-size: 0.94rem;
+  }
+
+  .history-table {
+    font-size: 0.72rem;
+    table-layout: auto;
+  }
+
+  .history-table th,
+  .history-table td {
+    padding: 9px 4px;
+    white-space: nowrap;
+  }
+
+  .history-table th:last-child,
+  .history-table td:last-child {
+    padding-left: 2px;
+    padding-right: 2px;
+    width: 1%;
   }
 
   .app-shell,
