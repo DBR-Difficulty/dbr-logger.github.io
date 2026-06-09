@@ -12,6 +12,7 @@ const {
 const { renderHistory: renderHistoryComponent } = await import(`./components/history-table.js${MODULE_VERSION}`);
 const { renderPagination: renderPaginationComponent } = await import(`./components/pagination.js${MODULE_VERSION}`);
 const {
+  CATALOG_LAYOUT_READY_EVENT,
   renderCatalog: renderCatalogComponent,
   renderSelectedSong: renderSelectedSongComponent,
 } = await import(`./components/song-list.js${MODULE_VERSION}`);
@@ -173,6 +174,7 @@ export function createRenderer(store) {
   let lastUserScrollAt = 0;
   let floatingDockSide = "bottom";
   let pendingCatalogBottomNextScroll = false;
+  let pendingCatalogViewScrollY = null;
   let scrollDirectionStreak = null;
   let scrollDirectionDistance = 0;
   let scrollDirectionTimestamp = 0;
@@ -883,6 +885,17 @@ export function createRenderer(store) {
   nodes.selectedWorkspace?.addEventListener("touchmove", handleSelectedWorkspaceTouchMove, { passive: false });
   nodes.selectedWorkspace?.addEventListener("touchend", finishSelectedWorkspaceTouch);
   nodes.selectedWorkspace?.addEventListener("touchcancel", finishSelectedWorkspaceTouch);
+  nodes.catalog?.addEventListener(CATALOG_LAYOUT_READY_EVENT, () => {
+    if (pendingCatalogViewScrollY === null || !nodes.catalogPanel) {
+      return;
+    }
+
+    const previousScrollY = pendingCatalogViewScrollY;
+    pendingCatalogViewScrollY = null;
+    if (Math.abs(window.scrollY - previousScrollY) >= 1) {
+      window.scrollTo(0, previousScrollY);
+    }
+  });
   nodes.selectedWorkspace?.addEventListener("scroll", () => {
     selectedWorkspaceScrollTop = nodes.selectedWorkspace?.scrollTop ?? 0;
   }, { passive: true });
@@ -1662,6 +1675,7 @@ export function createRenderer(store) {
     openSelectedWorkspace,
     setPendingCatalogBottomNextScroll: (value) => { pendingCatalogBottomNextScroll = value; },
     setPendingCatalogBottomLock: (value) => { pendingCatalogBottomLock = value; },
+    setPendingCatalogViewScrollY: (value) => { pendingCatalogViewScrollY = value; },
   });
 
   bindKeyboardHandlers({

@@ -50,6 +50,7 @@ export function bindCatalogHandlers({
   openSelectedWorkspace = () => {},
   setPendingCatalogBottomNextScroll,
   setPendingCatalogBottomLock,
+  setPendingCatalogViewScrollY,
 }) {
   function handleTableSortClick(button) {
     const nextSortMode = button.dataset.tableSortMode;
@@ -179,6 +180,7 @@ export function bindCatalogHandlers({
     store.setSortMode(target.value);
   });
   nodes.catalogViewToggle?.addEventListener("click", () => {
+    setPendingCatalogViewScrollY(window.scrollY);
     store.toggleCatalogViewMode();
   });
 }

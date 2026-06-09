@@ -4,6 +4,8 @@ const { formatIsoDate } = await import(`../../utils/date.js${MODULE_VERSION}`);
 const { VERSION_BAND_LABELS } = await import(`../../state/filters.js${MODULE_VERSION}`);
 const { encodeDatasetValue } = await import(`../dataset.js${MODULE_VERSION}`);
 
+export const CATALOG_LAYOUT_READY_EVENT = "dbr:catalog-layout-ready";
+
 const LAMP_COLORS = {
   "NO PLAY": "var(--lamp-no-play)",
   FAILED: "var(--lamp-failed)",
@@ -326,7 +328,7 @@ export function renderSelectedSong(selectedSongContainer, selectedSong, songs, o
   selectedSongContainer.append(eyebrow, topMeta, title, note, bottomMeta);
 }
 
-function commitCatalogChildren(catalogContainer, payload) {
+function commitCatalogChildren(catalogContainer, payload, afterLayout = null) {
   const previousHeight = catalogContainer.getBoundingClientRect().height;
   if (previousHeight > 0) {
     catalogContainer.style.minHeight = `${previousHeight}px`;
@@ -336,6 +338,10 @@ function commitCatalogChildren(catalogContainer, payload) {
   } finally {
     window.requestAnimationFrame(() => {
       catalogContainer.style.minHeight = "";
+      afterLayout?.();
+      window.requestAnimationFrame(() => {
+        catalogContainer.dispatchEvent(new CustomEvent(CATALOG_LAYOUT_READY_EVENT));
+      });
     });
   }
 }
@@ -559,8 +565,7 @@ export function renderCatalog(catalogContainer, songs, selectedTitle, options = 
 
   if (options.viewMode === "table") {
     const tableWrap = renderCatalogTable(songs, selectedTitle, options);
-    commitCatalogChildren(catalogContainer, tableWrap);
-    window.requestAnimationFrame(() => {
+    commitCatalogChildren(catalogContainer, tableWrap, () => {
       const levelHeader = tableWrap.querySelector("th.song-table-col-level");
       if (levelHeader) {
         tableWrap.style.setProperty("--song-table-level-width", `${levelHeader.getBoundingClientRect().width}px`);

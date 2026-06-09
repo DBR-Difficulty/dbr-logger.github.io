@@ -160,6 +160,10 @@ label,
   min-width: 0;
 }
 
+.catalog-panel {
+  overflow-anchor: none;
+}
+
 .selected-workspace.stack {
   background: var(--bg);
   border-top: 1px solid var(--border);

@@ -48,6 +48,7 @@ export function collectRendererNodes(documentRef = document) {
 
 export function initializeRendererNodeClasses(nodes) {
   nodes.summaryPanel?.classList.add("summary-overview-panel");
+  nodes.catalogPanel?.classList.add("catalog-panel");
 }
 
 export function syncDifficultyImportButton(button, shouldHighlight) {
